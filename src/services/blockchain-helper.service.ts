@@ -8,6 +8,7 @@ import { LmsrMarketMakerContractData } from '@/abis/lmsr-market.abi';
 import { Chain } from '@/types/chain.type';
 import { Weth9CollateralToken } from '@/abis/collateral-tokens.abi';
 import { CollateralTokenType } from '@/types/crypto-token.type';
+import { PredictionMarket } from '@/types/prediction-market.type';
 
 export class BlockchainHelperService {
   private provider: ethers.JsonRpcProvider;
@@ -94,11 +95,11 @@ export class BlockchainHelperService {
   }
 
   getAmmContractHandler(
-    marketAddress: string,
+    market: PredictionMarket,
     specificRunner?: ContractRunnerType,
   ) {
     return new ethers.Contract(
-      marketAddress,
+      market.address,
       LmsrMarketMakerContractData.abi,
       specificRunner || this.operatorAccount,
     );

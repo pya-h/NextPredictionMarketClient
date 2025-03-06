@@ -4,17 +4,14 @@ import { CollateralTokenType } from '@/types/crypto-token.type';
 import {
   Oracle,
 } from '../prediction-market/entities/oracle.entity';
-import { MarketMakerFactory } from './entities/market-maker-factory.entity';
-import { CryptoTokenEnum } from '../blockchain-core/enums/crypto-token.enum';
-import { PredictionMarket } from '../prediction-market/entities/market.entity';
+
 import BigNumber from 'bignumber.js';
 import { PredictionMarketTypesEnum } from '../enums/market-types.enum';
-import { LmsrMarketHelperService } from './helpers/lmsr-market-helper.service';
+import { LmsrMarketHelperService } from './lmsr-market-helper.service';
 import { BlockchainHelperService } from './blockchain-helper.service';
-import { LoggerService } from '../logger/logger.service';
-import { BaseConditionalToken } from '../prediction-market/entities/bases/base-conditional-token.entity';
 import { OracleTypesEnum } from '@/enums/oracle-types.enum';
 import { LmsrMarketMakerFactoryContractData } from '@/abis/lmsr-market.abi';
+import { PredictionMarket } from '@/types/prediction-market.type';
 
 
 export class PredictionMarketContractsService {
@@ -25,7 +22,6 @@ export class PredictionMarketContractsService {
   constructor(
     private readonly blockchainHelperService: BlockchainHelperService,
     private readonly lmsrMarketHelperService: LmsrMarketHelperService,
-    private readonly loggerService: LoggerService,
   ) { }
 
   get conditionalTokensContract(): ethers.Contract {
@@ -182,7 +178,7 @@ export class PredictionMarketContractsService {
       );
 
     if (!creationLog[0]?.args?.["lmsrMarketMaker"]) {
-      this.loggerService.error(
+      console.error(
         'Failed to find out the created market maker contract address data: creationLog:',
         null,
         { data: { tx: JSON.stringify(lmsrFactoryTx, null, 2) } },
@@ -193,7 +189,7 @@ export class PredictionMarketContractsService {
     }
 
     console.log(
-      `#DeployMarket: Find Market Address from Market Creation Log - SUCCESS => MarketAddress: ${creationLog[0].args[factory.marketMakerAddressField]
+      `#DeployMarket: Find Market Address from Market Creation Log - SUCCESS => MarketAddress: LMSRMarketMakerCreation
       }\n#DeployMarket: Market Successfully Deployed To Blockchain.`,
     );
 
@@ -264,17 +260,15 @@ export class PredictionMarketContractsService {
     market: PredictionMarket,
     selectedOutcomeIndex: number,
     amount: number,
-    manualCollateralLimit: number = null,
+    manualCollateralLimit?: number,
   ) {
-    const trader = this.blockchainHelperService.getEthereumAccount(
-      this.blockchainHelperService.getWallet('trader')
-    );
+    const trader = this.blockchainHelperService.getWallet('trader');
     const marketMakerContract =
-      this.blockchainHelperService.getAmmContractHandler(market, trader.ethers);
+      this.blockchainHelperService.getAmmContractHandler(market, trader);
     const collateralTokenContract =
       this.blockchainHelperService.getContractHandler(
         market.collateralToken,
-        trader.ethers,
+        trader,
       );
 
     switch (market.type) {
@@ -303,7 +297,7 @@ export class PredictionMarketContractsService {
             collateralTokenContract,
             formattedCollateralLimit
               ? BigInt(formattedCollateralLimit.toFixed())
-              : null,
+              : undefined,
           )
           : this.lmsrMarketHelperService.sellOutcomeToken(
             trader,
@@ -313,7 +307,7 @@ export class PredictionMarketContractsService {
             marketMakerContract,
             formattedCollateralLimit
               ? BigInt(formattedCollateralLimit.toFixed())
-              : null,
+              : undefined,
           );
       case PredictionMarketTypesEnum.FPMM.toString():
         throw new Error('Not fully implemented yet.');
@@ -429,11 +423,6 @@ export class PredictionMarketContractsService {
     market: PredictionMarket,
     amount: number = 1,
   ) {
-    if (!market.ammFactory) {
-      market.ammFactory = await this.getMarketMakerFactoryById(
-        market.ammFactoryId,
-      ); // market maker factory field is crucial since it contains MarketMakerABI
-    }
     const amountInWei = BigInt(
       (
         await this.blockchainHelperService.toWei(
@@ -442,7 +431,7 @@ export class PredictionMarketContractsService {
         )
       ).toFixed(),
     );
-    if (!market.isOpen) {
+    if (!market.closedAt) {
       if (amount < 0) {
         amount *= -1; // Buy and sell price in resolved market are the same.
       }
@@ -522,7 +511,7 @@ export class PredictionMarketContractsService {
     }
     return new BigNumber(weiPrice.toString()).div(
       10 **
-      (await this.blockchainHelperService.getCryptoTokenDecimals(
+      (await this.blockchainHelperService.getTokenDecimals(
         market.collateralToken,
       )),
     );
@@ -531,7 +520,7 @@ export class PredictionMarketContractsService {
   async resolveMarket(
     market: PredictionMarket,
     payoutVector: number[],
-  ): Promise<TransactionReceipt> {
+  ): Promise<TransactionReceipt | null> {
     switch (market.oracle.type) {
       case OracleTypesEnum.CENTRALIZED.toString():
         const oracleEthereumAccount =
@@ -556,6 +545,7 @@ export class PredictionMarketContractsService {
           'Decentralized oracle is not implemented yet.',
         );
     }
+    return null;
   }
 
   async redeemMarketRewards(userId: number, market: PredictionMarket) {
