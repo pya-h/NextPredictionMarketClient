@@ -43,7 +43,7 @@ export default function Markets() {
         setSelectedOutcome(index);
     };
 
-    const handleBuy = async () => {
+    const handleTrade = async (isSelling: boolean = false) => {
         if (!selectedMarket || selectedOutcome === null || !amount) {
             toast.error('Please select a market, outcome, and enter an amount', {
                 position: "top-right",
@@ -60,8 +60,8 @@ export default function Markets() {
             await service.trade(
                 traderId,
                 selectedMarket,
-                selectedOutcome,
-                parseFloat(amount)
+                selectedMarket.outcomes.map((_, idx) => idx === selectedOutcome ? parseFloat(amount) : 0),
+                { isSelling }
             );
 
             toast.success('Trade executed successfully!', {
@@ -73,34 +73,6 @@ export default function Markets() {
         } catch (error) {
             console.error('Error executing trade:', error);
             toast.error('Failed to execute trade. Please try again.', {
-                position: "top-right",
-                transition: Bounce,
-            });
-        } finally {
-            setIsLoading(false);
-        }
-    };
-
-    const handleSell = async () => {
-        if (!selectedMarket || selectedOutcome === null || !amount) {
-            toast.error('Please select a market, outcome, and enter an amount', {
-                position: "top-right",
-                transition: Bounce,
-            });
-            return;
-        }
-
-        setIsLoading(true);
-        try {
-            toast.success('Sell order executed successfully!', {
-                position: "top-right",
-                transition: Bounce,
-            });
-
-            setAmount("");
-        } catch (error) {
-            console.error('Error executing sell order:', error);
-            toast.error('Failed to execute sell order. Please try again.', {
                 position: "top-right",
                 transition: Bounce,
             });
@@ -259,7 +231,7 @@ export default function Markets() {
                     <div className="flex gap-4 mt-4 md:mt-0">
                         <button
                             className={`${tableStyles.button.base} ${tableStyles.button.buy} transform hover:scale-105 transition-transform duration-200`}
-                            onClick={handleBuy}
+                            onClick={() => handleTrade(false)}
                             disabled={isLoading || !selectedMarket || selectedOutcome === null || !amount}
                         >
                             <span className="flex items-center">
@@ -279,7 +251,7 @@ export default function Markets() {
 
                         <button
                             className={`${tableStyles.button.base} ${tableStyles.button.sell} transform hover:scale-105 transition-transform duration-200`}
-                            onClick={handleSell}
+                            onClick={() => handleTrade(true)}
                             disabled={isLoading || !selectedMarket || selectedOutcome === null || !amount}
                         >
                             <span className="flex items-center">

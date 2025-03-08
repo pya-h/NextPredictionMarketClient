@@ -3,7 +3,6 @@ import { useState } from "react";
 import { motion } from "framer-motion";
 import { PredictionMarketContractsService } from "@/services/prediction-market-contracts.service";
 import { Bounce, toast } from "react-toastify";
-import { PredictionMarket } from "@/types/prediction-market.type";
 
 export default function Creation() {
   const [question, setQuestion] = useState("");

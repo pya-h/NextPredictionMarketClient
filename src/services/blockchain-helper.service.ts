@@ -31,7 +31,7 @@ export class BlockchainHelperService {
     BlockchainHelperService._instance = this;
   }
 
-  getReservedAccounts(type: 'operator' | 'oracle' | 'trader' = 'trader'): { public: string, private: string } {
+  getReservedAccounts(type: 'operator' | 'oracle' | 'trader' = 'trader', traderId?: number): { public: string, private: string } {
     switch (type) {
       case 'operator':
         return { public: '0x90F8bf6A479f320ead074411a4B0e7944Ea8c9C1', private: '0x4f3edf983ac636a65a842ce7c78d9aa706d3b113bce9c46f30d7d21715b23b1d' };
@@ -39,15 +39,18 @@ export class BlockchainHelperService {
         return { public: '0xFFcf8FDEE72ac11b5c542428B35EEF5769C409f0', private: '0x6cbed15c793ce57650b9877cf6fa156fbef513c4e6134f022a85b1ffdd59b2a1' };
     }
     const traderAddresses = [
-      { public: '0x3fD652C93dFA333979ad762Cf581Df89BaBa6795', private: '0xae9a2e131e9b359b198fa280de53ddbe2247730b881faae7af08e567e58915bd' }, 
+      { public: '0x3fD652C93dFA333979ad762Cf581Df89BaBa6795', private: '0xae9a2e131e9b359b198fa280de53ddbe2247730b881faae7af08e567e58915bd' },
       { public: '0x325A621DeA613BCFb5B1A69a7aCED0ea4AfBD73A', private: '0x2e114163041d2fb8d45f9251db259a68ee6bdbfd6d10fe1ae87c5c4bcd6ba491' },
       { public: '0xF0D5BC18421fa04D0a2A2ef540ba5A9f04014BE3', private: '0x2eac15546def97adc6d69ca6e28eec831189baa2533e7910755d15403a0749e8' },
     ]
+    if (traderId != null) {
+      return traderAddresses[traderId]
+    }
     return traderAddresses[(traderAddresses.length * Math.random()) | 0]
   }
 
-  getWallet(type: 'operator' | 'oracle' | 'trader' = 'trader') {
-    return new ethers.Wallet(this.getReservedAccounts(type).private, this.provider);
+  getWallet(type: 'operator' | 'oracle' | 'trader' = 'trader', traderId?: number) {
+    return new ethers.Wallet(this.getReservedAccounts(type, traderId).private, this.provider);
   }
 
   get zeroAddress() {
@@ -62,6 +65,14 @@ export class BlockchainHelperService {
     return this.provider;
   }
 
+  getTokenBalance(userAddress: string, token?: CollateralTokenType) {
+    const contract = this.getContractHandler(token ?? this.getCollateralToken());
+    return this.call<bigint | number>(
+      contract,
+      { name: 'balanceOf', isView: true },
+      userAddress,
+    )
+  }
 
   getPrimaryAddresses(num: number, specificLength: number = 64) {
     return `0x${'0'.repeat(specificLength - num.toString().length)}${num}`;
@@ -319,14 +330,14 @@ export class BlockchainHelperService {
   }
 
   async convertNativeTokenToCollateral(
-    ownerPrivateKey: string,
-    chain: Chain,
+    ownerPrivate: ethers.Wallet | string,
     {
+      chain = undefined,
       amount = undefined,
       amountInWei = undefined,
-    }: { amountInWei?: bigint | BigNumber; amount?: number },
+    }: { amountInWei?: bigint | BigNumber; amount?: number; chain?: Chain },
   ) {
-    const ownerWallet = new ethers.Wallet(ownerPrivateKey, this.provider);
+    const ownerWallet = ownerPrivate instanceof ethers.Wallet ? ownerPrivate : new ethers.Wallet(ownerPrivate, this.provider);
     const targetToken = this.getCollateralToken();
     if (!amountInWei) {
       if (!amount) {

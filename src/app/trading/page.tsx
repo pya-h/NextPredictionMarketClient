@@ -1,13 +1,29 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { PredictionMarket, OutcomeToken } from "../../types/prediction-market.type";
+import { PredictionMarket } from "../../types/prediction-market.type";
 import { toast } from "react-toastify";
+import { PredictionMarketContractsService } from "@/services/prediction-market-contracts.service";
+import { motion } from "framer-motion";
 
 export default function Trading() {
     const [market, setMarket] = useState<PredictionMarket | null>(null);
-    const [traderSelection, setTraderSelection] = useState<string>("Trader 1");
+    const [currentTraderId, setCurrentTraderId] = useState<number>(0);
     const [tradeAmounts, setTradeAmounts] = useState<number[]>([]);
+    const [tokenPrices, setTokenPrices] = useState<number[]>([])
+    const [userShares, setUserShares] = useState<number[]>([])
+    const [userCollateralBalance, setUserCollateralBalance] = useState<number>(0);
+
+    useEffect(() => {
+        if (!market) {
+            return;
+        }
+        const service = PredictionMarketContractsService.get()
+        service.getMarketAllOutcomePrices(market).then(r => { r?.length && setTokenPrices(r.map(token => token.price ?? 0)) })
+        service.getUserSharesInMarket(market, currentTraderId).then(r => { r?.length && setUserShares(r.map(balance => +balance)) })
+
+        service.getUserCollateralTokenBalance(currentTraderId, market).then(x => setUserCollateralBalance(x.toNumber()))
+    }, [currentTraderId, market])
 
     useEffect(() => {
         const marketsFromStorage = localStorage.getItem('markets');
@@ -34,14 +50,12 @@ export default function Trading() {
         setTradeAmounts(newAmounts);
     };
 
-    const handleBuy = () => {
-        console.log("Buy with trader:", traderSelection);
-        console.log("Trade amounts:", tradeAmounts);
-    };
-
-    const handleSell = () => {
-        console.log("Sell with trader:", traderSelection);
-        console.log("Trade amounts:", tradeAmounts);
+    const handleTrade = (isSelling: boolean = false) => {
+        if (!market || (tradeAmounts.findIndex(x => x) === -1)) {
+            return;
+        }
+        const service = PredictionMarketContractsService.get();
+        service.trade(currentTraderId, market, tradeAmounts, { isSelling });
     };
 
     if (!market) {
@@ -59,9 +73,9 @@ export default function Trading() {
         input: "w-full p-2 bg-gray-800 text-gray-200 border border-gray-600 rounded focus:outline-none focus:ring-2 focus:ring-blue-500",
         select: "p-2 bg-gray-800 text-gray-200 border border-gray-600 rounded focus:outline-none focus:ring-2 focus:ring-blue-500",
         button: {
-            base: "px-4 py-2 rounded font-medium transition-all duration-200 transform hover:scale-105",
-            buy: "bg-green-600 text-white hover:bg-green-700",
-            sell: "bg-red-600 text-white hover:bg-red-700"
+            base: "px-4 py-2 rounded-lg font-medium shadow-md focus:outline-none focus:ring-2 focus:ring-opacity-50 flex items-center justify-center",
+            buy: "bg-green-600 hover:bg-green-700 text-white focus:ring-green-500",
+            sell: "bg-red-600 hover:bg-red-700 text-white focus:ring-red-500"
         }
     };
 
@@ -90,7 +104,11 @@ export default function Trading() {
 
     return (
         <div className="container mx-auto px-4 py-8 max-w-7xl">
-            <div className="bg-gray-800 rounded-lg shadow-lg p-6 transition-all duration-300 hover:shadow-xl">
+            <motion.div className="bg-gray-800 rounded-lg shadow-lg p-6 transition-all duration-300 hover:shadow-xl"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                transition={{ duration: 0.5, delay: 0.2 }}
+            >
                 <h2 className="text-2xl font-bold mb-4 text-blue-400">{market.question}</h2>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
@@ -113,22 +131,26 @@ export default function Trading() {
                         <p>
                             <span className="font-semibold">Status:</span>
                             <span className={`ml-2 px-2 py-1 rounded text-xs font-medium ${market.status === 'resolved' ? 'bg-green-600' :
-                                    market.status === 'closed' ? 'bg-red-600' : 'bg-blue-600'
+                                market.status === 'closed' ? 'bg-red-600' : 'bg-blue-600'
                                 }`}>
                                 {market.status || 'Ongoing'}
                             </span>
                         </p>
                     </div>
                 </div>
-            </div>
+            </motion.div>
 
-            <div className={`${tableStyles.container} transition-all duration-300 hover:shadow-xl`}>
+            <motion.div className={`${tableStyles.container} my-3 transition-all duration-300 hover:shadow-xl`}
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                transition={{ duration: 0.5, delay: 0.3 }}
+            >
                 <h3 className="text-xl font-bold mb-4 text-blue-400">Market Outcomes</h3>
                 <div className="overflow-x-auto">
                     <table className={tableStyles.table}>
                         <thead>
                             <tr>
-                                {["ID", "Outcome", "Current Price", "Shares Owned", "Trade Amount"].map((header) => (
+                                {["IDx", "Outcome", "Price", "Shares", "Amount"].map((header) => (
                                     <th key={header} className={`${tableStyles.tableHeaderCell} ${tableStyles.tableHeader}`}>
                                         {header}
                                     </th>
@@ -140,8 +162,8 @@ export default function Trading() {
                                 <tr key={index} className={tableStyles.tableRow}>
                                     <td className={tableStyles.tableCell}>{outcome.tokenIndex}</td>
                                     <td className={tableStyles.tableCell}>{outcome.title}</td>
-                                    <td className={tableStyles.tableCell}>0</td>
-                                    <td className={tableStyles.tableCell}>0</td>
+                                    <td className={tableStyles.tableCell}>{tokenPrices[index] ?? 0}</td>
+                                    <td className={tableStyles.tableCell}>{userShares[index] ?? 0}</td>
                                     <td className={tableStyles.tableCell}>
                                         <input
                                             type="number"
@@ -155,27 +177,39 @@ export default function Trading() {
                         </tbody>
                     </table>
                 </div>
-            </div>
+            </motion.div>
 
-            <div className="bg-gray-800 rounded-lg shadow-lg p-6 transition-all duration-300 hover:shadow-xl">
+            <motion.div className="bg-gray-800 rounded-lg shadow-lg p-6 transition-all duration-300 hover:shadow-xl"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                transition={{ duration: 0.5, delay: 0.4 }}
+            >
                 <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                     <div className="w-full md:w-auto">
                         <label className="block text-sm font-medium text-gray-300 mb-2">Select Trader</label>
                         <select
                             className={`${tableStyles.select} w-full md:w-auto min-w-[200px]`}
-                            value={traderSelection}
-                            onChange={(e) => setTraderSelection(e.target.value)}
+                            value={currentTraderId}
+                            onChange={(e) => setCurrentTraderId(+e.target.value)}
                         >
-                            <option value="Trader 1">Trader 1</option>
-                            <option value="Trader 2">Trader 2</option>
-                            <option value="Trader 3">Trader 3</option>
+                            <option value="0">Trader 1</option>
+                            <option value="1">Trader 2</option>
+                            <option value="2">Trader 3</option>
                         </select>
+                    </div>
+
+                    <div className="bg-gray-700 rounded-lg p-3 text-center">
+                        <div className="text-sm text-gray-300 mb-1">Available Balance
+                            <span className="mx-2 text-lg font-bold text-green-400">
+                                {userCollateralBalance?.toFixed(4)}
+                            </span>
+                        </div>
                     </div>
 
                     <div className="flex gap-4 mt-4 md:mt-0">
                         <button
                             className={`${tableStyles.button.base} ${tableStyles.button.buy} transform hover:scale-105 transition-transform duration-200`}
-                            onClick={handleBuy}
+                            onClick={() => handleTrade()}
                         >
                             <span className="flex items-center">
                                 <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" viewBox="0 0 20 20" fill="currentColor">
@@ -187,7 +221,7 @@ export default function Trading() {
 
                         <button
                             className={`${tableStyles.button.base} ${tableStyles.button.sell} transform hover:scale-105 transition-transform duration-200`}
-                            onClick={handleSell}
+                            onClick={() => handleTrade(true)}
                         >
                             <span className="flex items-center">
                                 <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" viewBox="0 0 20 20" fill="currentColor">
@@ -198,7 +232,7 @@ export default function Trading() {
                         </button>
                     </div>
                 </div>
-            </div>
+            </motion.div>
         </div>
     );
 

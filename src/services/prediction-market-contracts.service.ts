@@ -90,6 +90,13 @@ export class PredictionMarketContractsService {
     return { address: acc.public, private: acc.private, type: "centralized" } as Oracle
   }
 
+  async getUserCollateralTokenBalance(userId: number, market: PredictionMarket) {
+    return this.blockchainHelperService.toEthers(await this.blockchainHelperService.getTokenBalance(
+      this.blockchainHelperService.getReservedAccounts('trader', userId).public,
+      market.collateralToken
+    ), market.collateralToken)
+  }
+
   async createMarket(
     question: string,
     outcomes: string[],
@@ -287,11 +294,13 @@ export class PredictionMarketContractsService {
   async trade(
     traderId: number,
     market: PredictionMarket,
-    selectedOutcomeIndex: number,
-    amount: number,
-    manualCollateralLimit?: number,
+    amounts: number[],
+    { manualCollateralLimit = undefined, isSelling = false }: {
+      manualCollateralLimit?: number,
+      isSelling?: boolean
+    } = {}
   ) {
-    const trader = this.blockchainHelperService.getWallet('trader');
+    const trader = this.blockchainHelperService.getWallet('trader', traderId);
     const marketMakerContract =
       this.blockchainHelperService.getAmmContractHandler(market, trader);
     const collateralTokenContract =
@@ -302,26 +311,24 @@ export class PredictionMarketContractsService {
 
     switch (market.type) {
       case PredictionMarketTypesEnum.LMSR.toString():
-        const [formattedAmount, formattedCollateralLimit] = await Promise.all([
-          this.blockchainHelperService.toWei(
-            Math.abs(amount),
-            market.collateralToken,
-          ),
+        const [formattedCollateralLimit, ...formattedAmounts] = await Promise.all([
           manualCollateralLimit
             ? this.blockchainHelperService.toWei(
               manualCollateralLimit,
               market.collateralToken,
             )
             : null,
+          ...amounts.map(amount => this.blockchainHelperService.toWei(
+            amount,
+            market.collateralToken,
+          )),
         ]);
 
-        return amount > 0
+        return !isSelling
           ? this.lmsrMarketHelperService.buyOutcomeToken(
             trader,
             market,
-            BigInt(formattedAmount.toFixed()), // using BigNumber.toFixed() to prevent it from converting too large/small numbers to their scientific notion string
-            //  which causes BigInt() throw conversion error.
-            selectedOutcomeIndex,
+            formattedAmounts,
             marketMakerContract,
             collateralTokenContract,
             formattedCollateralLimit
@@ -331,8 +338,7 @@ export class PredictionMarketContractsService {
           : this.lmsrMarketHelperService.sellOutcomeToken(
             trader,
             market,
-            BigInt(formattedAmount.toFixed()),
-            selectedOutcomeIndex,
+            formattedAmounts,
             marketMakerContract,
             formattedCollateralLimit
               ? BigInt(formattedCollateralLimit.toFixed())
@@ -379,17 +385,21 @@ export class PredictionMarketContractsService {
   }
 
   async getUserConditionalTokenBalance(
-    userId: number,
+    traderId: number,
     market: PredictionMarket,
     indexSet: number,
   ) {
     const userBlockchainWallet =
-      this.blockchainHelperService.getWallet('trader')
-    return this.getConditionalTokenBalance(
+      this.blockchainHelperService.getWallet('trader', traderId)
+    return (await this.getConditionalTokenBalance(
       market,
       indexSet,
       userBlockchainWallet.address,
-    );
+    )).toNumber();
+  }
+
+  async getUserSharesInMarket(market: PredictionMarket, traderId: number) {
+    return Promise.all(market.outcomes.map(outcome => this.getUserConditionalTokenBalance(traderId, market, outcome.tokenIndex)))
   }
 
   getMarketConditionalTokenBalance(market: PredictionMarket, indexSet: number) {
@@ -460,7 +470,7 @@ export class PredictionMarketContractsService {
         )
       ).toFixed(),
     );
-    if (!market.closedAt) {
+    if (market.closedAt) {
       if (amount < 0) {
         amount *= -1; // Buy and sell price in resolved market are the same.
       }

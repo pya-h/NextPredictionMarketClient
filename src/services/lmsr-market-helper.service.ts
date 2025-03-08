@@ -9,7 +9,7 @@ export class LmsrMarketHelperService {
   private static _instance?: LmsrMarketHelperService = undefined;
 
   static get() {
-    if(!LmsrMarketHelperService._instance) {
+    if (!LmsrMarketHelperService._instance) {
       return new LmsrMarketHelperService(BlockchainHelperService.get())
     }
     return LmsrMarketHelperService._instance;
@@ -17,7 +17,7 @@ export class LmsrMarketHelperService {
 
   private constructor(
     private readonly blockchainHelperService: BlockchainHelperService,
-  ) { 
+  ) {
     LmsrMarketHelperService._instance = this;
   }
 
@@ -53,24 +53,17 @@ export class LmsrMarketHelperService {
   async buyOutcomeToken(
     buyer: ethers.Wallet,
     market: PredictionMarket,
-    formattedAmount: bigint,
-    selectedOutcomeIndex: number,
+    outcomeTokenAmounts: BigNumber[],
     marketMakerContract: ethers.Contract,
     collateralTokenContract: ethers.Contract,
     manualCollateralLimit?: number | bigint,
   ) {
-    const outcomeTokenAmounts = Array.from(
-      { length: market.outcomes.length },
-      (_: unknown, index: number) =>
-        index === selectedOutcomeIndex ? formattedAmount : 0n,
-    );
-
     const [cost, collateralBalance] = (
       await Promise.all([
         this.blockchainHelperService.call<bigint | number>(
           marketMakerContract,
           { name: 'calcNetCost', isView: true },
-          outcomeTokenAmounts,
+          outcomeTokenAmounts.map(x => x.toString()),
         ),
         this.blockchainHelperService.call<bigint | number>(
           collateralTokenContract,
@@ -91,23 +84,27 @@ export class LmsrMarketHelperService {
         : 0n);
 
     if (costForSure > collateralBalance) {
-      const [costShorted, collateralBalanceShorted] = await Promise.all([
-        this.blockchainHelperService.toEthers(
-          costForSure,
-          market.collateralToken,
-        ),
-        this.blockchainHelperService.toEthers(
-          collateralBalance,
-          market.collateralToken,
-        ),
-      ]);
-      throw new Error(
-        `Insufficient funds! You purchase may cost ${costShorted.toFixed(
-          3,
-        )} tokens. You need ${costShorted
-          .minus(collateralBalanceShorted)
-          .toFixed(3)} tokens more which exceeds you current balance!`,
-      );
+      try {
+        await this.blockchainHelperService.convertNativeTokenToCollateral(buyer, { amountInWei: costForSure - collateralBalance })
+      } catch (ex) {
+        const [costShorted, collateralBalanceShorted] = await Promise.all([
+          this.blockchainHelperService.toEthers(
+            costForSure,
+            market.collateralToken,
+          ),
+          this.blockchainHelperService.toEthers(
+            collateralBalance,
+            market.collateralToken,
+          ),
+        ]);
+        throw new Error(
+          `Insufficient funds! You purchase may cost ${costShorted.toFixed(
+            3,
+          )} tokens. You need ${costShorted
+            .minus(collateralBalanceShorted)
+            .toFixed(3)} tokens more which exceeds you current balance!`,
+        );
+      }
     }
     await this.blockchainHelperService.call(
       collateralTokenContract,
@@ -129,8 +126,7 @@ export class LmsrMarketHelperService {
   async sellOutcomeToken(
     seller: ethers.Wallet,
     market: PredictionMarket,
-    formattedAmount: bigint,
-    selectedOutcomeIndex: number,
+    formattedAmounts: BigNumber[],
     marketMakerContract: ethers.Contract,
     manualCollateralLimit?: number | bigint,
   ) {
@@ -160,11 +156,7 @@ export class LmsrMarketHelperService {
       );
     }
 
-    const outcomeTokenAmounts = Array.from(
-      { length: market.outcomes.length },
-      (_: unknown, index: number) =>
-        index === selectedOutcomeIndex ? -formattedAmount : 0n,
-    );
+    const outcomeTokenAmounts = formattedAmounts.map(x => x.negated().toString())
 
     const profit = -(
       manualCollateralLimit ||
