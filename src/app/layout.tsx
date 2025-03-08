@@ -31,11 +31,12 @@ export default function RootLayout({
       >
         <ToastProvider>
           <div className="min-h-screen flex flex-col justify-between">
-            {/* Navbar */}
+
             <nav className="bg-gradient-to-r from-blue-500 via-purple-600 to-pink-500 text-white shadow-lg py-4">
               <div className="container mx-auto flex justify-center space-x-8">
                 {[
                   { name: "Creation", href: "/creation" },
+                  { name: "Markets", href: "/markets" },
                   { name: "Trading", href: "/trading" },
                   { name: "Resolution", href: "/resolution" },
                   { name: "Redeeming", href: "/redeeming" },

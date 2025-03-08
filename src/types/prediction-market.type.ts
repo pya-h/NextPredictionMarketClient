@@ -9,13 +9,19 @@ export type OutcomeToken = {
     sub?: OutcomeToken[]
 }
 
+export type SubConditionType = {
+    id: string
+    question: string,
+    questionFormatted?: string,
+    questionId: string,
+}
+
 export type PredictionMarket = {
-    id: number,
     address: string,
     type: 'lmsr' | 'fpmm' | 'orderbook',
     chain: Chain,
     question: string,
-    questionFormattted?: string,
+    questionFormatted?: string,
     questionId: string,
     outcomes: OutcomeToken[],
     initialLiquidity: number,
@@ -27,6 +33,6 @@ export type PredictionMarket = {
     resolvedAt?: Date,
     status?: 'closed' | 'ongoing' | 'resolved'
     conditionId: string
-    subConditions?: Record<string, string>
+    subConditions?: Record<string, SubConditionType>
     // TODO:?
 }

@@ -3,6 +3,7 @@ import { useState } from "react";
 import { motion } from "framer-motion";
 import { PredictionMarketContractsService } from "@/services/prediction-market-contracts.service";
 import { Bounce, toast } from "react-toastify";
+import { PredictionMarket } from "@/types/prediction-market.type";
 
 export default function Creation() {
   const [question, setQuestion] = useState("");
@@ -37,8 +38,7 @@ export default function Creation() {
     setIsSubmitting(true);
 
     const service = PredictionMarketContractsService.get();
-    const { liquidityWei, ...market } = await service.createMarket(question, outcomes, +liquidity);
-    saveMarketToFile(market)
+    saveMarketToFile(await service.createMarket(question, outcomes, +liquidity))
     resetInputs()
     toast('Market successfully created!', {
       position: "top-right",

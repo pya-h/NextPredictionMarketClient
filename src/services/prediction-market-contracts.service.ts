@@ -7,7 +7,7 @@ import { LmsrMarketHelperService } from './lmsr-market-helper.service';
 import { BlockchainHelperService } from './blockchain-helper.service';
 import { OracleTypesEnum } from '@/enums/oracle-types.enum';
 import { LmsrMarketMakerFactoryContractData } from '@/abis/lmsr-market.abi';
-import { PredictionMarket } from '@/types/prediction-market.type';
+import { PredictionMarket, SubConditionType } from '@/types/prediction-market.type';
 import { Oracle } from '@/types/oracle.type';
 
 
@@ -95,10 +95,9 @@ export class PredictionMarketContractsService {
     outcomes: string[],
     initialLiquidityInEth: number,
     oracle?: Oracle,
-    subQuestions?: string[],
+    outcomeQuestions?: Record<string, string>,
   ) {
-    const currentChainId =
-      await this.blockchainHelperService.getCurrentChainId();
+    const currentChain = this.blockchainHelperService.getChain()
 
     const collateralToken = this.blockchainHelperService.getCollateralToken()
 
@@ -118,19 +117,23 @@ export class PredictionMarketContractsService {
       initialLiquidityInEth.toString(),
     );
 
-    const questionFormattted = Date.now().toString() + "-" + question;
+    const questionFormatted = Date.now().toString() + "-" + question;
     const conditions = [
-      await this.createCondition(questionFormattted, oracle, outcomes.length), // or commented?
+      await this.createCondition(questionFormatted, oracle, outcomes.length), // or commented?
     ];
-
-    if (subQuestions?.length) {
-      for (const q of subQuestions) {
-        conditions.push(await this.createCondition(q, oracle, 2));
+    const subConditions: Record<string, SubConditionType> = {}
+    if (outcomeQuestions && Object.keys(outcomeQuestions)?.length) {
+      for (const outcome in outcomeQuestions) {
+        const qf = Date.now().toString() + "-" + outcomeQuestions[outcome];
+        const condition = await this.createCondition(qf, oracle, 2);
+        conditions.push(condition);
+        subConditions[outcome] = {
+          question: outcomeQuestions[outcome],
+          questionId: condition.questionId,
+          id: condition.id,
+          questionFormatted: condition.question,
+        } as SubConditionType
       }
-    } else {
-      conditions.push(
-        await this.createCondition(question, oracle, outcomes.length),
-      );
     }
 
     const operatorCollateralBalance =
@@ -210,19 +213,27 @@ export class PredictionMarketContractsService {
       }\n#DeployMarket: Market Successfully Deployed To Blockchain.`,
     );
 
+    const outcomesWithSubs = Object.keys(subConditions)
     return {
-      question,
-      questionFormattted,
-      conditions,
-      marketMakerAddress: creationLog[0].args["lmsrMarketMaker"],
-      oracle,
+      address: creationLog[0].args["lmsrMarketMaker"],
+      chain: currentChain,
       collateralToken,
-      liquidity: initialLiquidityInEth,
-      liquidityWei: initialLiquidity,
-      createMarketTxHash: lmsrFactoryTx.hash,
-      chainId: currentChainId,
+      conditionId: conditions[0].id,
+      question,
+      questionId: conditions[0].questionId,
+      questionFormatted,
+      subConditions,
+      creator: this.blockchainHelperService.operatorAccount.address,
+      oracle,
+      initialLiquidity: initialLiquidityInEth,
       startedAt,
-    };
+      type: "lmsr",
+      outcomes: outcomes.map((outcomeTitle, idx) => ({
+        title: outcomeTitle,
+        tokenIndex: idx,
+        ...(outcomesWithSubs.findIndex(o => o === outcomeTitle) !== -1 ? { sub: [{ title: 'Yes', tokenIndex: 0 }, { title: 'No', tokenIndex: 1 }] } : {})
+      }))
+    } as PredictionMarket;
   }
 
   getCollectionId(

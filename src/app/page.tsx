@@ -1,7 +1,5 @@
 "use client"
-import Link from "next/link";
 import { motion } from "framer-motion";
-import ToastProvider from "@/components/toastify";
 
 export default function Home() {
   return (
