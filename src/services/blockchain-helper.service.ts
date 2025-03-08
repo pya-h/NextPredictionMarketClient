@@ -291,6 +291,7 @@ export class BlockchainHelperService {
       return (await tx.wait()) as T;
     } catch (ex) {
       if (func.preventNonceMismatchRetry || !this.isANonceError(ex as Error)) {
+        console.log({ func, args })
         throw ex;
       }
       return this.call<T>(

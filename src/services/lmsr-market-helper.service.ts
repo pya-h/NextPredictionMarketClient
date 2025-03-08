@@ -53,17 +53,18 @@ export class LmsrMarketHelperService {
   async buyOutcomeToken(
     buyer: ethers.Wallet,
     market: PredictionMarket,
-    outcomeTokenAmounts: BigNumber[],
+    formattedAmounts: BigNumber[],
     marketMakerContract: ethers.Contract,
     collateralTokenContract: ethers.Contract,
     manualCollateralLimit?: number | bigint,
   ) {
+    const outcomeTokenAmounts = formattedAmounts.map(x => x.toString())
     const [cost, collateralBalance] = (
       await Promise.all([
         this.blockchainHelperService.call<bigint | number>(
           marketMakerContract,
           { name: 'calcNetCost', isView: true },
-          outcomeTokenAmounts.map(x => x.toString()),
+          outcomeTokenAmounts,
         ),
         this.blockchainHelperService.call<bigint | number>(
           collateralTokenContract,

@@ -9,9 +9,25 @@ export default function Markets() {
     const [markets, setMarkets] = useState<PredictionMarket[]>([]);
     const [selectedMarket, setSelectedMarket] = useState<PredictionMarket | null>(null);
     const [selectedOutcome, setSelectedOutcome] = useState<number | null>(null);
-    const [traderSelection, setTraderSelection] = useState("Trader 1");
+    const [traderSelection, setTraderSelection] = useState(0);
     const [amount, setAmount] = useState("");
     const [isLoading, setIsLoading] = useState(false);
+    const [stateUpdateTrigger, setStateUpdateTrigger] = useState(false);
+    const [tokenPrices, setTokenPrices] = useState<number[]>([])
+    const [userShares, setUserShares] = useState<number[]>([])
+
+    const triggerStateUpdate = () => {
+        setStateUpdateTrigger(x => !x)
+    }
+
+    useEffect(() => {
+        if (!selectedMarket) {
+            return;
+        }
+        const service = PredictionMarketContractsService.get()
+        service.getMarketAllOutcomePrices(selectedMarket).then(r => { r?.length && setTokenPrices(r.map(token => token.price ?? 0)) })
+        service.getUserSharesInMarket(selectedMarket, traderSelection).then(r => { r?.length && setUserShares(r.map(balance => +balance)) })
+    }, [traderSelection, selectedMarket, stateUpdateTrigger])
 
     useEffect(() => {
         const loadMarkets = () => {
@@ -55,10 +71,9 @@ export default function Markets() {
         setIsLoading(true);
         try {
             const service = PredictionMarketContractsService.get();
-            const traderId = parseInt(traderSelection.split(' ')[1]);
 
             await service.trade(
-                traderId,
+                traderSelection,
                 selectedMarket,
                 selectedMarket.outcomes.map((_, idx) => idx === selectedOutcome ? parseFloat(amount) : 0),
                 { isSelling }
@@ -174,11 +189,11 @@ export default function Markets() {
                                 <h4 className="font-medium text-white">{outcome.title}</h4>
                                 <div className="mt-2 flex justify-between">
                                     <span className="text-sm text-gray-400">Current Price:</span>
-                                    <span className="text-sm text-green-400">0.45 {selectedMarket.collateralToken.symbol}</span>
+                                    <span className="text-sm text-green-400 ml-3">{tokenPrices[index]?.toFixed(4)} {selectedMarket.collateralToken.symbol}</span>
                                 </div>
                                 <div className="mt-1 flex justify-between">
                                     <span className="text-sm text-gray-400">Your Balance:</span>
-                                    <span className="text-sm text-blue-400">0.00</span>
+                                    <span className="text-sm text-blue-400">{userShares[index]}</span>
                                 </div>
                             </div>
                         ))}
@@ -220,11 +235,11 @@ export default function Markets() {
                         <select
                             className={`${tableStyles.select} w-full md:w-auto min-w-[200px]`}
                             value={traderSelection}
-                            onChange={(e) => setTraderSelection(e.target.value)}
+                            onChange={(e) => setTraderSelection(+e.target.value)}
                         >
-                            <option value="Trader 1">Trader 1</option>
-                            <option value="Trader 2">Trader 2</option>
-                            <option value="Trader 3">Trader 3</option>
+                            <option value="0">Trader 1</option>
+                            <option value="1">Trader 2</option>
+                            <option value="2">Trader 3</option>
                         </select>
                     </div>
 

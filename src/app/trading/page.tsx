@@ -13,6 +13,12 @@ export default function Trading() {
     const [tokenPrices, setTokenPrices] = useState<number[]>([])
     const [userShares, setUserShares] = useState<number[]>([])
     const [userCollateralBalance, setUserCollateralBalance] = useState<number>(0);
+    const [stateUpdateTrigger, setStateUpdateTrigger] = useState(false);
+    const [isLoading, setIsLoading] = useState(false)
+
+    const triggerStateUpdate = () => {
+        setStateUpdateTrigger(x => !x)
+    }
 
     useEffect(() => {
         if (!market) {
@@ -23,7 +29,7 @@ export default function Trading() {
         service.getUserSharesInMarket(market, currentTraderId).then(r => { r?.length && setUserShares(r.map(balance => +balance)) })
 
         service.getUserCollateralTokenBalance(currentTraderId, market).then(x => setUserCollateralBalance(x.toNumber()))
-    }, [currentTraderId, market])
+    }, [currentTraderId, market, stateUpdateTrigger])
 
     useEffect(() => {
         const marketsFromStorage = localStorage.getItem('markets');
@@ -51,11 +57,46 @@ export default function Trading() {
     };
 
     const handleTrade = (isSelling: boolean = false) => {
+        if(isLoading) {
+            toast.warn("Wait asshole!", {
+                position: "bottom-right",
+                autoClose: 3000,
+                hideProgressBar: false,
+                closeOnClick: true,
+                pauseOnHover: true,
+                draggable: true,
+            });
+            return
+        }
+        setIsLoading(true);
         if (!market || (tradeAmounts.findIndex(x => x) === -1)) {
             return;
         }
         const service = PredictionMarketContractsService.get();
-        service.trade(currentTraderId, market, tradeAmounts, { isSelling });
+        service.trade(currentTraderId, market, tradeAmounts, { isSelling }).then(() => {
+            triggerStateUpdate();
+            toast.success("Trade was successfull!", {
+                position: "top-right",
+                autoClose: 3000,
+                hideProgressBar: false,
+                closeOnClick: true,
+                pauseOnHover: true,
+                draggable: true,
+            });
+            setIsLoading(false);
+        }).catch(ex => {
+            triggerStateUpdate();
+            toast.error(`Trade failed! ${ex.message.substring(0, 20)}`, {
+                position: "top-left",
+                autoClose: 3000,
+                hideProgressBar: false,
+                closeOnClick: true,
+                pauseOnHover: true,
+                draggable: true,
+            });
+            console.error(ex)
+            setIsLoading(false);
+        })
     };
 
     if (!market) {
@@ -199,7 +240,7 @@ export default function Trading() {
                     </div>
 
                     <div className="bg-gray-700 rounded-lg p-3 text-center">
-                        <div className="text-sm text-gray-300 mb-1">Available Balance
+                        <div className="text-sm text-gray-300 mb-1">{market?.collateralToken.symbol} Balance
                             <span className="mx-2 text-lg font-bold text-green-400">
                                 {userCollateralBalance?.toFixed(4)}
                             </span>
@@ -212,9 +253,16 @@ export default function Trading() {
                             onClick={() => handleTrade()}
                         >
                             <span className="flex items-center">
-                                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" viewBox="0 0 20 20" fill="currentColor">
-                                    <path fillRule="evenodd" d="M3.293 9.707a1 1 0 010-1.414l6-6a1 1 0 011.414 0l6 6a1 1 0 01-1.414 1.414L11 5.414V17a1 1 0 11-2 0V5.414L4.707 9.707a1 1 0 01-1.414 0z" clipRule="evenodd" />
-                                </svg>
+                                {isLoading ? (
+                                    <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                    </svg>
+                                ) : (
+                                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" viewBox="0 0 20 20" fill="currentColor">
+                                        <path fillRule="evenodd" d="M3.293 9.707a1 1 0 010-1.414l6-6a1 1 0 011.414 0l6 6a1 1 0 01-1.414 1.414L11 5.414V17a1 1 0 11-2 0V5.414L4.707 9.707a1 1 0 01-1.414 0z" clipRule="evenodd" />
+                                    </svg>
+                                )}
                                 Buy
                             </span>
                         </button>
@@ -224,9 +272,16 @@ export default function Trading() {
                             onClick={() => handleTrade(true)}
                         >
                             <span className="flex items-center">
-                                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" viewBox="0 0 20 20" fill="currentColor">
-                                    <path fillRule="evenodd" d="M16.707 10.293a1 1 0 010 1.414l-6 6a1 1 0 01-1.414 0l-6-6a1 1 0 111.414-1.414L9 14.586V3a1 1 0 012 0v11.586l4.293-4.293a1 1 0 011.414 0z" clipRule="evenodd" />
-                                </svg>
+                                {isLoading ? (
+                                    <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                    </svg>
+                                ) : (
+                                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" viewBox="0 0 20 20" fill="currentColor">
+                                        <path fillRule="evenodd" d="M16.707 10.293a1 1 0 010 1.414l-6 6a1 1 0 01-1.414 0l-6-6a1 1 0 111.414-1.414L9 14.586V3a1 1 0 012 0v11.586l4.293-4.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                                    </svg>
+                                )}
                                 Sell
                             </span>
                         </button>
