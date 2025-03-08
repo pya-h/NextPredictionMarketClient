@@ -1,6 +1,7 @@
 "use client"
 import { useState } from "react";
 import { motion } from "framer-motion";
+import { PredictionMarketContractsService } from "@/services/prediction-market-contracts.service";
 
 export default function Creation() {
   const [question, setQuestion] = useState("");

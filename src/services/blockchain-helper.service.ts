@@ -15,12 +15,20 @@ export class BlockchainHelperService {
   private operator: ethers.Wallet;
   private static gasRefillMultiplier = 0 // disable
 
-  constructor(
-  ) {
+  private static _instance?: BlockchainHelperService = undefined;
 
+  static get() {
+    if(!BlockchainHelperService._instance) {
+      return new BlockchainHelperService()
+    }
+    return BlockchainHelperService._instance;
+  }
+
+  private constructor() {
     const net = this.getChain();
     this.provider = new ethers.JsonRpcProvider(net.rpcUrl);
     this.operator = this.getWallet('operator');
+    BlockchainHelperService._instance = this;
   }
 
   getWallet(type: 'operator' | 'oracle' | 'trader' = 'trader') {

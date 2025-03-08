@@ -15,11 +15,21 @@ export class PredictionMarketContractsService {
   toKeccakHash(data: string) {
     return ethers.keccak256(ethers.toUtf8Bytes(data));
   }
+  private static _instance?: PredictionMarketContractsService = undefined;
 
-  constructor(
+  static get() {
+    if(!PredictionMarketContractsService._instance) {
+      return new PredictionMarketContractsService(BlockchainHelperService.get(), LmsrMarketHelperService.get())
+    }
+    return this._instance;
+  }
+
+  private constructor(
     private readonly blockchainHelperService: BlockchainHelperService,
     private readonly lmsrMarketHelperService: LmsrMarketHelperService,
-  ) { }
+  ) { 
+    PredictionMarketContractsService._instance = this;
+  }
 
   get conditionalTokensContract(): ethers.Contract {
     return this.blockchainHelperService.getContractHandler(

@@ -6,9 +6,21 @@ import { PredictionMarket } from '@/types/prediction-market.type';
 import { LmsrMarketMakerContractData } from '@/abis/lmsr-market.abi';
 
 export class LmsrMarketHelperService {
-  constructor(
+  private static _instance?: LmsrMarketHelperService = undefined;
+
+  static get() {
+    if(!LmsrMarketHelperService._instance) {
+      return new LmsrMarketHelperService(BlockchainHelperService.get())
+    }
+    return LmsrMarketHelperService._instance;
+  }
+
+  private constructor(
     private readonly blockchainHelperService: BlockchainHelperService,
-  ) { }
+  ) { 
+    LmsrMarketHelperService._instance = this;
+  }
+
   private static tradeSlippage = 0.01
 
   async calculateOutcomeTokenPrice(
