@@ -1,10 +1,6 @@
 import { ethers, TransactionReceipt } from 'ethers';
 import { ConditionTokenContractData } from '../abis/ctf.abi';
 import { CollateralTokenType } from '@/types/crypto-token.type';
-import {
-  Oracle,
-} from '../prediction-market/entities/oracle.entity';
-
 import BigNumber from 'bignumber.js';
 import { PredictionMarketTypesEnum } from '../enums/market-types.enum';
 import { LmsrMarketHelperService } from './lmsr-market-helper.service';
@@ -12,6 +8,7 @@ import { BlockchainHelperService } from './blockchain-helper.service';
 import { OracleTypesEnum } from '@/enums/oracle-types.enum';
 import { LmsrMarketMakerFactoryContractData } from '@/abis/lmsr-market.abi';
 import { PredictionMarket } from '@/types/prediction-market.type';
+import { Oracle } from '@/types/oracle.type';
 
 
 export class PredictionMarketContractsService {
@@ -435,8 +432,7 @@ export class PredictionMarketContractsService {
       if (amount < 0) {
         amount *= -1; // Buy and sell price in resolved market are the same.
       }
-      return market.outcomeTokens?.map((outcome) => ({
-        id: outcome.id,
+      return market.outcomes?.map((outcome) => ({
         outcome: outcome.title,
         index: outcome.tokenIndex,
         price:
@@ -449,7 +445,7 @@ export class PredictionMarketContractsService {
         const prices = await Promise.all(
           (
             await Promise.all(
-              market.outcomeTokens.map((outcome) =>
+              market.outcomes.map((outcome) =>
                 this.lmsrMarketHelperService.calculateOutcomeTokenPrice(
                   market,
                   outcome.tokenIndex,
@@ -466,11 +462,10 @@ export class PredictionMarketContractsService {
         );
 
         return prices.map((price, i) => ({
-          id: market.outcomeTokens[i].id,
-          outcome: market.outcomeTokens[i].title,
-          index: market.outcomeTokens[i].tokenIndex,
+          outcome: market.outcomes[i].title,
+          index: market.outcomes[i].tokenIndex,
           price: price.abs().toNumber(),
-          token: market.outcomeTokens[i],
+          token: market.outcomes[i],
         }));
       case PredictionMarketTypesEnum.FPMM.toString():
         throw new Error('Not fully implemented yet.');
@@ -524,14 +519,11 @@ export class PredictionMarketContractsService {
     switch (market.oracle.type) {
       case OracleTypesEnum.CENTRALIZED.toString():
         const oracleEthereumAccount =
-          this.blockchainHelperService.getEthereumAccount(
-            market.oracle.account,
-            market.chain,
-          );
+          this.blockchainHelperService.getWallet("oracle")
         const conditionalTokenContract =
           this.blockchainHelperService.getContractHandler(
             ConditionTokenContractData,
-            oracleEthereumAccount.ethers,
+            oracleEthereumAccount,
           );
         return this.blockchainHelperService.call<ethers.TransactionReceipt>(
           conditionalTokenContract,
@@ -549,7 +541,7 @@ export class PredictionMarketContractsService {
   }
 
   async redeemMarketRewards(userId: number, market: PredictionMarket) {
-    const indexSets = market.outcomeTokens.map((outcomeToken) =>
+    const indexSets = market.outcomes.map((outcomeToken) =>
       this.outcomeIndexToIndexSet(outcomeToken.tokenIndex),
     );
     const redeemer =

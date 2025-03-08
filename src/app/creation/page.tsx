@@ -26,13 +26,8 @@ export default function Creation() {
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     setIsSubmitting(true);
-    // Simulate a submission delay (e.g., API call)
-    setTimeout(() => {
-      console.log("Question:", question);
-      console.log("Liquidity:", liquidity);
-      console.log("Outcomes:", outcomes);
-      setIsSubmitting(false); // Reset button state after submission
-    }, 1500);
+    // TODO:
+    setIsSubmitting(false);
   };
 
   return (
@@ -53,7 +48,6 @@ export default function Creation() {
         animate={{ opacity: 1 }}
         transition={{ duration: 0.5 }}
       >
-        {/* Question Field */}
         <div className="mb-4">
           <label htmlFor="question" className="block text-sm font-semibold text-gray-300 mb-2">
             Question
@@ -68,7 +62,6 @@ export default function Creation() {
           />
         </div>
 
-        {/* Liquidity Field */}
         <div className="mb-4">
           <label htmlFor="liquidity" className="block text-sm font-semibold text-gray-300 mb-2">
             Initial Liquidity
@@ -83,7 +76,6 @@ export default function Creation() {
           />
         </div>
 
-        {/* Outcomes Fields */}
         <div className="mb-6">
           <label className="block text-sm font-semibold text-gray-300 mb-2">Outcomes</label>
           {outcomes.map((outcome, index) => (
@@ -114,7 +106,6 @@ export default function Creation() {
           </button>
         </div>
 
-        {/* Submit Button */}
         <motion.div
           className="text-center"
           initial={{ y: 20, opacity: 0 }}
