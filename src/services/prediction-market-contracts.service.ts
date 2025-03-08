@@ -18,16 +18,16 @@ export class PredictionMarketContractsService {
   private static _instance?: PredictionMarketContractsService = undefined;
 
   static get() {
-    if(!PredictionMarketContractsService._instance) {
+    if (!PredictionMarketContractsService._instance) {
       return new PredictionMarketContractsService(BlockchainHelperService.get(), LmsrMarketHelperService.get())
     }
-    return this._instance;
+    return PredictionMarketContractsService._instance;
   }
 
   private constructor(
     private readonly blockchainHelperService: BlockchainHelperService,
     private readonly lmsrMarketHelperService: LmsrMarketHelperService,
-  ) { 
+  ) {
     PredictionMarketContractsService._instance = this;
   }
 
@@ -58,6 +58,7 @@ export class PredictionMarketContractsService {
     outcomesCount: number,
   ) {
     const questionId = this.toKeccakHash(question);
+
     const receipt =
       await this.blockchainHelperService.call<ethers.TransactionReceipt>(
         this.conditionalTokensContract,
@@ -84,11 +85,16 @@ export class PredictionMarketContractsService {
     };
   }
 
+  getOracle() {
+    const acc = this.blockchainHelperService.getReservedAccounts("oracle");
+    return { address: acc.public, private: acc.private, type: "centralized" } as Oracle
+  }
+
   async createMarket(
     question: string,
     outcomes: string[],
     initialLiquidityInEth: number,
-    oracle: Oracle,
+    oracle?: Oracle,
     subQuestions?: string[],
   ) {
     const currentChainId =
@@ -96,6 +102,9 @@ export class PredictionMarketContractsService {
 
     const collateralToken = this.blockchainHelperService.getCollateralToken()
 
+    if (!oracle) {
+      oracle = this.getOracle()
+    }
 
     if (!collateralToken?.abi?.length)
       throw new Error(
@@ -109,8 +118,9 @@ export class PredictionMarketContractsService {
       initialLiquidityInEth.toString(),
     );
 
+    const questionFormattted = Date.now().toString() + "-" + question;
     const conditions = [
-      await this.createCondition(question, oracle, outcomes.length), // or commented?
+      await this.createCondition(questionFormattted, oracle, outcomes.length), // or commented?
     ];
 
     if (subQuestions?.length) {
@@ -202,6 +212,7 @@ export class PredictionMarketContractsService {
 
     return {
       question,
+      questionFormattted,
       conditions,
       marketMakerAddress: creationLog[0].args["lmsrMarketMaker"],
       oracle,

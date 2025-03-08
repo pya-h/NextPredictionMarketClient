@@ -2,6 +2,7 @@
 import { useState } from "react";
 import { motion } from "framer-motion";
 import { PredictionMarketContractsService } from "@/services/prediction-market-contracts.service";
+import { Bounce, toast } from "react-toastify";
 
 export default function Creation() {
   const [question, setQuestion] = useState("");
@@ -24,11 +25,47 @@ export default function Creation() {
     setOutcomes(newOutcomes);
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const resetInputs = () => {
+    setIsSubmitting(false)
+    setLiquidity("")
+    setOutcomes([])
+    setQuestion("")
+  } 
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsSubmitting(true);
-    // TODO:
-    setIsSubmitting(false);
+
+    const service = PredictionMarketContractsService.get();
+    const { liquidityWei, ...market } = await service.createMarket(question, outcomes, +liquidity);
+    saveMarketToFile(market)
+    resetInputs()
+    toast('Market successfully created!', {
+      position: "top-right",
+      autoClose: 5000,
+      hideProgressBar: false,
+      closeOnClick: true,
+      pauseOnHover: true,
+      draggable: true,
+      progress: undefined,
+      theme: "light",
+      transition: Bounce,
+    });
+  };
+
+  const saveMarketToFile = (marketData: any) => {
+    try {
+      const existingData = localStorage.getItem('markets')
+        ? JSON.parse(localStorage.getItem('markets') || '[]')
+        : [];
+
+      localStorage.setItem('markets', JSON.stringify([...existingData, marketData]));
+
+      return true;
+    } catch (error) {
+      console.error('Error saving market data:', error);
+      return false;
+    }
   };
 
   return (
@@ -101,9 +138,9 @@ export default function Creation() {
           <button
             type="button"
             onClick={handleAddOutcome}
-            className="text-blue-400 hover:text-blue-600 transition-colors"
+            className="text-blue-400 cursor-pointer hover:text-blue-600 transition-colors"
           >
-            Add Outcome
+            ADD
           </button>
         </div>
 
@@ -116,9 +153,8 @@ export default function Creation() {
           <button
             type="submit"
             disabled={isSubmitting}
-            className={`px-6 py-3 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-              isSubmitting ? "bg-blue-400 cursor-not-allowed" : ""
-            }`}
+            className={`px-6 py-3 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 ${isSubmitting ? "bg-blue-400 cursor-not-allowed" : ""
+              }`}
           >
             {isSubmitting ? "Submitting..." : "Create Market"}
           </button>

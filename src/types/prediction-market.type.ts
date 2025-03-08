@@ -15,6 +15,7 @@ export type PredictionMarket = {
     type: 'lmsr' | 'fpmm' | 'orderbook',
     chain: Chain,
     question: string,
+    questionFormattted?: string,
     questionId: string,
     outcomes: OutcomeToken[],
     initialLiquidity: number,

@@ -18,7 +18,7 @@ export class BlockchainHelperService {
   private static _instance?: BlockchainHelperService = undefined;
 
   static get() {
-    if(!BlockchainHelperService._instance) {
+    if (!BlockchainHelperService._instance) {
       return new BlockchainHelperService()
     }
     return BlockchainHelperService._instance;
@@ -31,15 +31,23 @@ export class BlockchainHelperService {
     BlockchainHelperService._instance = this;
   }
 
-  getWallet(type: 'operator' | 'oracle' | 'trader' = 'trader') {
+  getReservedAccounts(type: 'operator' | 'oracle' | 'trader' = 'trader'): { public: string, private: string } {
     switch (type) {
       case 'operator':
-        return new ethers.Wallet(this.zeroAddress, this.provider); // TODO:
+        return { public: '0x90F8bf6A479f320ead074411a4B0e7944Ea8c9C1', private: '0x4f3edf983ac636a65a842ce7c78d9aa706d3b113bce9c46f30d7d21715b23b1d' };
       case 'oracle':
-        return new ethers.Wallet(this.zeroAddress, this.provider); // TODO: 
-      default:
-        return new ethers.Wallet(this.zeroAddress, this.provider); // TODO:
+        return { public: '0xFFcf8FDEE72ac11b5c542428B35EEF5769C409f0', private: '0x6cbed15c793ce57650b9877cf6fa156fbef513c4e6134f022a85b1ffdd59b2a1' };
     }
+    const traderAddresses = [
+      { public: '0x3fD652C93dFA333979ad762Cf581Df89BaBa6795', private: '0xae9a2e131e9b359b198fa280de53ddbe2247730b881faae7af08e567e58915bd' }, 
+      { public: '0x325A621DeA613BCFb5B1A69a7aCED0ea4AfBD73A', private: '0x2e114163041d2fb8d45f9251db259a68ee6bdbfd6d10fe1ae87c5c4bcd6ba491' },
+      { public: '0xF0D5BC18421fa04D0a2A2ef540ba5A9f04014BE3', private: '0x2eac15546def97adc6d69ca6e28eec831189baa2533e7910755d15403a0749e8' },
+    ]
+    return traderAddresses[(traderAddresses.length * Math.random()) | 0]
+  }
+
+  getWallet(type: 'operator' | 'oracle' | 'trader' = 'trader') {
+    return new ethers.Wallet(this.getReservedAccounts(type).private, this.provider);
   }
 
   get zeroAddress() {
@@ -177,93 +185,93 @@ export class BlockchainHelperService {
         );
 
     if (func.isView) {
-        return (await contract[func.name](...args)) as T;
+      return (await contract[func.name](...args)) as T;
     }
 
     try {
-      if (func.runner && func.runner.address !== this.operator.address) {
-        const [gas, feeData, userExactNativeTokenBalance] = await Promise.all([
-          contract[func.name].estimateGas(...args),
-          this.provider.getFeeData(),
-          this.provider.getBalance(func.runner.address),
-        ]);
+      // if (func.runner && func.runner.address !== this.operator.address) {
+      //   const [gas, feeData, userExactNativeTokenBalance] = await Promise.all([
+      //     contract[func.name].estimateGas(...args),
+      //     this.provider.getFeeData(),
+      //     this.provider.getBalance(func.runner.address),
+      //   ]);
 
-        const estimatedGas = new BigNumber(
-          (gas * (feeData?.maxFeePerGas ?? 0n)).toString(),
-        );
+      //   const estimatedGas = new BigNumber(
+      //     (gas * (feeData?.maxFeePerGas ?? 0n)).toString(),
+      //   );
 
-        const userAvailableNativeTokenBalance =
-          userExactNativeTokenBalance -
-          BigInt((func?.name === 'deposit' && args[0].value) || 0);
+      //   const userAvailableNativeTokenBalance =
+      //     userExactNativeTokenBalance -
+      //     BigInt((func?.name === 'deposit' && args[0].value) || 0);
 
 
-        if (
-          estimatedGas.gte(userAvailableNativeTokenBalance.toString()) &&
-          BlockchainHelperService.gasRefillMultiplier // set BlockchainHelperService.gasRefillMultiplier to zero, to disable gas provision process
-        ) {
-          const gasChargeAmount = estimatedGas.multipliedBy(
-            BlockchainHelperService.gasRefillMultiplier,
-          );
+      //   if (
+      //     estimatedGas.gte(userAvailableNativeTokenBalance.toString()) &&
+      //     BlockchainHelperService.gasRefillMultiplier // set BlockchainHelperService.gasRefillMultiplier to zero, to disable gas provision process
+      //   ) {
+      //     const gasChargeAmount = estimatedGas.multipliedBy(
+      //       BlockchainHelperService.gasRefillMultiplier,
+      //     );
 
-          try {
-            const gasProvideTx = await this.operator.sendTransaction({
-              to: func.runner.address,
-              value: BigInt(gasChargeAmount.toFixed()),
-            });
-            if (!func.dontWait) {
-              const log = await gasProvideTx.wait();
-              console.info(
-                `Operator donated gas to user#${func.runner.address}`,
-                {
-                  data: {
-                    targetId: func.runner,
-                    onFunction: func.name,
-                    tx: gasProvideTx.toJSON(),
-                    log: log?.toJSON(),
-                  },
-                },
-              );
-            } else {
-              console.info(
-                `Operator donated gas to user#${func.runner.address}`,
-                {
-                  data: {
-                    targetId: func.runner,
-                    onFunction: func.name,
-                    tx: gasProvideTx.toJSON(),
-                  },
-                },
-              );
-            }
-          } catch (ex) {
-            const operatorBalance = (
-              await this.provider.getBalance(this.operator.address)
-            ).toString();
+      //     try {
+      //       const gasProvideTx = await this.operator.sendTransaction({
+      //         to: func.runner.address,
+      //         value: BigInt(gasChargeAmount.toFixed()),
+      //       });
+      //       if (!func.dontWait) {
+      //         const log = await gasProvideTx.wait();
+      //         console.info(
+      //           `Operator donated gas to user#${func.runner.address}`,
+      //           {
+      //             data: {
+      //               targetId: func.runner,
+      //               onFunction: func.name,
+      //               tx: gasProvideTx.toJSON(),
+      //               log: log?.toJSON(),
+      //             },
+      //           },
+      //         );
+      //       } else {
+      //         console.info(
+      //           `Operator donated gas to user#${func.runner.address}`,
+      //           {
+      //             data: {
+      //               targetId: func.runner,
+      //               onFunction: func.name,
+      //               tx: gasProvideTx.toJSON(),
+      //             },
+      //           },
+      //         );
+      //       }
+      //     } catch (ex) {
+      //       const operatorBalance = (
+      //         await this.provider.getBalance(this.operator.address)
+      //       ).toString();
 
-            console.error(
-              `Operator failed to charge User#${func.runner.address}'s gas tank; Checkout operator balance...`,
-              ex as Error,
-              {
-                data: {
-                  operatorBalance,
-                  estimatedGas: estimatedGas.toFixed(),
-                  ...func.runner,
-                },
-              },
-            );
+      //       console.error(
+      //         `Operator failed to charge User#${func.runner.address}'s gas tank; Checkout operator balance...`,
+      //         ex as Error,
+      //         {
+      //           data: {
+      //             operatorBalance,
+      //             estimatedGas: estimatedGas.toFixed(),
+      //             ...func.runner,
+      //           },
+      //         },
+      //       );
 
-            if (gasChargeAmount.gte(operatorBalance)) {
-              // TODO: Inform the admin (or whatever) with fastest mean [discuss this.]
-              throw new Error(
-                'Server is not ready to complete your request... Please try again some time later.',
-              );
-            }
-            throw new Error(
-              'Unexpected error happened while trying to complete your request!',
-            );
-          }
-        }
-      }
+      //       if (gasChargeAmount.gte(operatorBalance)) {
+      //         // TODO: Inform the admin (or whatever) with fastest mean [discuss this.]
+      //         throw new Error(
+      //           'Server is not ready to complete your request... Please try again some time later.',
+      //         );
+      //       }
+      //       throw new Error(
+      //         'Unexpected error happened while trying to complete your request!',
+      //       );
+      //     }
+      //   }
+      // }
 
       const tx: ethers.TransactionResponse = await contract[func.name](...args);
       if (func.dontWait) {
@@ -289,7 +297,7 @@ export class BlockchainHelperService {
   ): Promise<ethers.LogDescription[]> {
     try {
       const eventFragment = contract.interface.getEvent(eventName);
-      if(!eventFragment) {
+      if (!eventFragment) {
         throw new Error('Event not found!')
       }
       const eventTopics = contract.interface.encodeFilterTopics(
@@ -307,9 +315,9 @@ export class BlockchainHelperService {
   }
 
   getCollateralToken() {
-    return {name: 'Wrapped Ethereum 9', symbol: 'WETH9', ...Weth9CollateralToken} as CollateralTokenType
+    return { name: 'Wrapped Ethereum 9', symbol: 'WETH9', ...Weth9CollateralToken } as CollateralTokenType
   }
-  
+
   async convertNativeTokenToCollateral(
     ownerPrivateKey: string,
     chain: Chain,
