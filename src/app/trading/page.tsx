@@ -59,7 +59,7 @@ export default function Trading() {
     const handleTrade = (isSelling: boolean = false) => {
         if(isLoading) {
             toast.warn("Wait asshole!", {
-                position: "bottom-right",
+                position: "top-center",
                 autoClose: 3000,
                 hideProgressBar: false,
                 closeOnClick: true,
