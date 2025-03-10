@@ -7,6 +7,24 @@ import { PredictionMarketContractsService } from "@/services/prediction-market-c
 import { motion } from "framer-motion";
 import { MarketStorage } from "@/utils/market-storage";
 
+
+const tableStyles = {
+    container: "bg-gray-800 rounded-lg shadow-lg p-6 mb-6",
+    table: "min-w-full bg-gray-900 text-gray-200 rounded-lg overflow-hidden",
+    tableHeader:
+        "bg-gray-700 text-left text-xs font-semibold text-gray-300 uppercase tracking-wider",
+    tableHeaderCell: "py-3 px-4",
+    tableRow: "hover:bg-gray-700 transition-colors duration-150",
+    tableCell: "py-3 px-4 border-b border-gray-700",
+    input: "w-full p-2 bg-gray-800 text-gray-200 border border-gray-600 rounded focus:outline-none focus:ring-2 focus:ring-blue-500",
+    select: "p-2 bg-gray-800 text-gray-200 border border-gray-600 rounded focus:outline-none focus:ring-2 focus:ring-blue-500",
+    button: {
+        base: "px-4 py-2 rounded-lg font-medium shadow-md focus:outline-none focus:ring-2 focus:ring-opacity-50 flex items-center justify-center",
+        buy: "bg-green-600 hover:bg-green-700 text-white focus:ring-green-500",
+        sell: "bg-red-600 hover:bg-red-700 text-white focus:ring-red-500",
+    },
+};
+
 export default function Trading() {
     const [market, setMarket] = useState<PredictionMarket | null>(null);
     const [currentTraderId, setCurrentTraderId] = useState<number>(0);
@@ -109,23 +127,6 @@ export default function Trading() {
     if (!market) {
         return <div className="p-4">No market data found in localStorage</div>;
     }
-
-    const tableStyles = {
-        container: "bg-gray-800 rounded-lg shadow-lg p-6 mb-6",
-        table: "min-w-full bg-gray-900 text-gray-200 rounded-lg overflow-hidden",
-        tableHeader:
-            "bg-gray-700 text-left text-xs font-semibold text-gray-300 uppercase tracking-wider",
-        tableHeaderCell: "py-3 px-4",
-        tableRow: "hover:bg-gray-700 transition-colors duration-150",
-        tableCell: "py-3 px-4 border-b border-gray-700",
-        input: "w-full p-2 bg-gray-800 text-gray-200 border border-gray-600 rounded focus:outline-none focus:ring-2 focus:ring-blue-500",
-        select: "p-2 bg-gray-800 text-gray-200 border border-gray-600 rounded focus:outline-none focus:ring-2 focus:ring-blue-500",
-        button: {
-            base: "px-4 py-2 rounded-lg font-medium shadow-md focus:outline-none focus:ring-2 focus:ring-opacity-50 flex items-center justify-center",
-            buy: "bg-green-600 hover:bg-green-700 text-white focus:ring-green-500",
-            sell: "bg-red-600 hover:bg-red-700 text-white focus:ring-red-500",
-        },
-    };
 
     const copyAddressToClipboard = () => {
         if (market) {

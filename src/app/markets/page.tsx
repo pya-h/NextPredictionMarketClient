@@ -6,6 +6,30 @@ import { PredictionMarket } from "@/types/prediction-market.type";
 import { Bounce, toast } from "react-toastify";
 import { MarketStorage } from "@/utils/market-storage";
 
+const tableStyles = {
+    container: "bg-gray-900 rounded-lg shadow-lg overflow-hidden",
+    header: "bg-gray-800 px-6 py-4",
+    title: "text-xl font-bold text-white",
+    content: "p-6",
+    table: "min-w-full divide-y divide-gray-700",
+    th: "px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider",
+    td: "px-6 py-4 whitespace-nowrap text-sm text-gray-300",
+    tr: "hover:bg-gray-700 transition-colors duration-200",
+    select: "bg-gray-700 border border-gray-600 text-white rounded-md px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500",
+    input: "bg-gray-700 border border-gray-600 text-white rounded-md px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500",
+    button: {
+        base: "px-4 py-2 rounded-md font-medium focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-gray-800",
+        buy: "bg-green-600 hover:bg-green-700 text-white",
+        sell: "bg-red-600 hover:bg-red-700 text-white",
+        neutral: "bg-blue-600 hover:bg-blue-700 text-white",
+    },
+    outcomeCard: {
+        base: "border rounded-lg p-4 cursor-pointer transition-all duration-200",
+        selected: "border-blue-500 bg-blue-900/30",
+        unselected: "border-gray-700 hover:border-gray-500",
+    },
+};
+
 export default function Markets() {
     const [markets, setMarkets] = useState<PredictionMarket[]>([]);
     const [selectedMarket, setSelectedMarket] =
@@ -131,7 +155,7 @@ export default function Markets() {
             });
             return;
         }
-
+        setIsLoading(true);
         const service = PredictionMarketContractsService.get();
         const market = { ...selectedMarket };
         try {
@@ -145,6 +169,7 @@ export default function Markets() {
                     position: "top-left",
                     transition: Bounce,
                 });
+                setIsLoading(false);
                 return;
             }
             if (!selectedMarket.closedAt) {
@@ -184,30 +209,49 @@ export default function Markets() {
                 }
             );
         }
+        setIsLoading(false);
     };
 
-    const tableStyles = {
-        container: "bg-gray-900 rounded-lg shadow-lg overflow-hidden",
-        header: "bg-gray-800 px-6 py-4",
-        title: "text-xl font-bold text-white",
-        content: "p-6",
-        table: "min-w-full divide-y divide-gray-700",
-        th: "px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider",
-        td: "px-6 py-4 whitespace-nowrap text-sm text-gray-300",
-        tr: "hover:bg-gray-700 transition-colors duration-200",
-        select: "bg-gray-700 border border-gray-600 text-white rounded-md px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500",
-        input: "bg-gray-700 border border-gray-600 text-white rounded-md px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500",
-        button: {
-            base: "px-4 py-2 rounded-md font-medium focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-gray-800",
-            buy: "bg-green-600 hover:bg-green-700 text-white",
-            sell: "bg-red-600 hover:bg-red-700 text-white",
-            neutral: "bg-blue-600 hover:bg-blue-700 text-white",
-        },
-        outcomeCard: {
-            base: "border rounded-lg p-4 cursor-pointer transition-all duration-200",
-            selected: "border-blue-500 bg-blue-900/30",
-            unselected: "border-gray-700 hover:border-gray-500",
-        },
+    const handleRedeem = async () => {
+        if (!selectedMarket) {
+            toast.warn("Select the market first!", {
+                position: "top-center",
+                transition: Bounce,
+            });
+            return;
+        }
+
+        if (!selectedMarket.resolvedAt) {
+            toast.error("Market is not resolved yet!", {
+                position: "top-left",
+                transition: Bounce,
+            });
+            return;
+        }
+        setIsLoading(true);
+
+        try {
+            await PredictionMarketContractsService.get().redeemMarketRewards(
+                traderSelection,
+                selectedMarket,
+                selectedOutcome
+            );
+        } catch (ex) {
+            console.error(
+                `Failed redeeming from market: ${selectedMarket.address}`,
+                { selectedOutcome, ex }
+            );
+            toast.error(
+                "Failed redeeming rewards: " +
+                    (ex as Error).message.substring(0, 20) +
+                    "...",
+                {
+                    position: "top-left",
+                    transition: Bounce,
+                }
+            );
+        }
+        setIsLoading(false);
     };
 
     return (
@@ -258,18 +302,18 @@ export default function Markets() {
                         </h3>
                         <div className="bg-gray-700 rounded-lg p-4">
                             <p className="text-gray-300">
-                                <span className="font-medium">Question:</span>{" "}
+                                <span className="font-medium">Question:</span>
                                 {selectedMarket.question}
                             </p>
                             <p className="text-gray-300">
                                 <span className="font-medium">
                                     Initial Liquidity:
-                                </span>{" "}
-                                {selectedMarket.initialLiquidity}{" "}
+                                </span>
+                                {selectedMarket.initialLiquidity}
                                 {selectedMarket.collateralToken.symbol}
                             </p>
                             <p className="text-gray-300">
-                                <span className="font-medium">Created:</span>{" "}
+                                <span className="font-medium">Created:</span>
                                 {new Date(
                                     selectedMarket.startedAt
                                 ).toLocaleString()}
@@ -308,7 +352,7 @@ export default function Markets() {
                                         Current Price:
                                     </span>
                                     <span className="text-sm text-green-400 ml-3">
-                                        {tokenPrices[index]?.toFixed(4)}{" "}
+                                        {tokenPrices[index]?.toFixed(4)}
                                         {selectedMarket.collateralToken.symbol}
                                     </span>
                                 </div>
@@ -382,7 +426,7 @@ export default function Markets() {
                             <div className="flex gap-4 mt-4 md:mt-0">
                                 <button
                                     className={`${tableStyles.button.base} bg-purple-600 hover:bg-purple-700 transform hover:scale-105 transition-transform duration-200`}
-                                    onClick={() => {}}
+                                    onClick={() => handleResolve()}
                                     disabled={
                                         isLoading ||
                                         !selectedMarket ||
@@ -533,7 +577,7 @@ export default function Markets() {
                             <div className="flex gap-4 mt-4 md:mt-0">
                                 <button
                                     className={`${tableStyles.button.base} bg-yellow-600 hover:bg-yellow-700 transform hover:scale-105 transition-transform duration-200`}
-                                    onClick={() => {}}
+                                    onClick={() => handleRedeem()}
                                     disabled={isLoading}
                                 >
                                     <span className="flex items-center">

@@ -582,12 +582,13 @@ export class PredictionMarketContractsService {
     return null;
   }
 
-  async redeemMarketRewards(userId: number, market: PredictionMarket) {
-    const indexSets = market.outcomes.map((outcomeToken) =>
+  async redeemMarketRewards(traderId: number, market: PredictionMarket, specificOutcomeIndex: number | null = null) {
+    const indexSets = specificOutcomeIndex == null ? market.outcomes.map((outcomeToken) =>
       this.outcomeIndexToIndexSet(outcomeToken.tokenIndex),
-    );
+    ) : [this.outcomeIndexToIndexSet(specificOutcomeIndex)];
+
     const redeemer =
-      this.blockchainHelperService.getWallet('trader')
+      this.blockchainHelperService.getWallet('trader', traderId)
     const redeemReceipt =
       await this.blockchainHelperService.call<ethers.TransactionReceipt>(
         ConditionTokenContractData,
