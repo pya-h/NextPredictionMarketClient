@@ -134,21 +134,46 @@ export default function Markets() {
         const service = PredictionMarketContractsService.get();
         const market = { ...selectedMarket };
         try {
+            const truenessRatios = !amount?.length
+                ? market.outcomes.map((_, idx) =>
+                      idx === selectedOutcome ? 1 : 0
+                  )
+                : amount.split(/\s+/g).map((x) => +x);
+            if (truenessRatios.length !== market.outcomes.length) {
+                toast.error("Invalid trueness ratio array!", {
+                    position: "top-left",
+                    transition: Bounce,
+                });
+                return;
+            }
             if (!selectedMarket.closedAt) {
                 await service.closeMarket(market);
                 market.closedAt = new Date();
             }
-            await service.resolveMarket(market, market.outcomes.map((_, idx) => idx === selectedOutcome ? 1 : 0));
+
+            await service.resolveMarket(
+                market,
+                market.outcomes.map((_, idx) =>
+                    idx === selectedOutcome ? 1 : 0
+                )
+            );
             market.resolvedAt = new Date();
             // TODO:
+            setSelectedMarket(market);
+            // setMarkets()
         } catch (ex) {
             console.error(`Failed resolving market: ${market.address}`, ex);
-            toast.error("Failed resolving market: " + (ex as Error).message.substring(0, 20) + "...", {
-                position: "top-left",
-                transition: Bounce,
-            });
+            toast.error(
+                "Failed resolving market: " +
+                    (ex as Error).message.substring(0, 20) +
+                    "...",
+                {
+                    position: "top-left",
+                    transition: Bounce,
+                }
+            );
         }
-    }
+    };
     const tableStyles = {
         container: "bg-gray-900 rounded-lg shadow-lg overflow-hidden",
         header: "bg-gray-800 px-6 py-4",
@@ -256,10 +281,11 @@ export default function Markets() {
                         {selectedMarket.outcomes.map((outcome, index) => (
                             <div
                                 key={index}
-                                className={`${tableStyles.outcomeCard.base} ${selectedOutcome === index
-                                    ? tableStyles.outcomeCard.selected
-                                    : tableStyles.outcomeCard.unselected
-                                    }`}
+                                className={`${tableStyles.outcomeCard.base} ${
+                                    selectedOutcome === index
+                                        ? tableStyles.outcomeCard.selected
+                                        : tableStyles.outcomeCard.unselected
+                                }`}
                                 onClick={() => handleOutcomeSelect(index)}
                             >
                                 <h4 className="font-medium text-white">
@@ -297,14 +323,20 @@ export default function Markets() {
                 >
                     <div className="mb-4">
                         <label className="block text-sm font-medium text-gray-300 mb-2">
-                            Amount ({selectedMarket.collateralToken.symbol})
+                            {!selectedMarket.resolvedAt
+                                ? `Amount ({selectedMarket.collateralToken.symbol})`
+                                : "Outcome Trueness Ratio"}
                         </label>
                         <input
                             type="number"
                             className={`${tableStyles.input} w-full`}
                             value={amount}
                             onChange={(e) => setAmount(e.target.value)}
-                            placeholder="Enter amount to trade"
+                            placeholder={
+                                !selectedMarket.resolvedAt
+                                    ? "Enter amount to trade"
+                                    : "Enter outcomes trueness splitted by space.."
+                            }
                             min="0"
                             step="0.01"
                         />
@@ -338,7 +370,7 @@ export default function Markets() {
                             <div className="flex gap-4 mt-4 md:mt-0">
                                 <button
                                     className={`${tableStyles.button.base} bg-purple-600 hover:bg-purple-700 transform hover:scale-105 transition-transform duration-200`}
-                                    onClick={() => { }}
+                                    onClick={() => {}}
                                     disabled={
                                         isLoading ||
                                         !selectedMarket ||
@@ -489,7 +521,7 @@ export default function Markets() {
                             <div className="flex gap-4 mt-4 md:mt-0">
                                 <button
                                     className={`${tableStyles.button.base} bg-yellow-600 hover:bg-yellow-700 transform hover:scale-105 transition-transform duration-200`}
-                                    onClick={() => { }}
+                                    onClick={() => {}}
                                     disabled={isLoading}
                                 >
                                     <span className="flex items-center">
@@ -539,5 +571,3 @@ export default function Markets() {
         </div>
     );
 }
-
-
