@@ -4,6 +4,7 @@ import { motion } from "framer-motion";
 import { PredictionMarketContractsService } from "@/services/prediction-market-contracts.service";
 import { PredictionMarket } from "@/types/prediction-market.type";
 import { Bounce, toast } from "react-toastify";
+import { MarketStorage } from "@/utils/market-storage";
 
 export default function Markets() {
     const [markets, setMarkets] = useState<PredictionMarket[]>([]);
@@ -39,13 +40,13 @@ export default function Markets() {
     useEffect(() => {
         const loadMarkets = () => {
             try {
-                const storedMarkets = localStorage.getItem("markets");
-                if (storedMarkets) {
-                    const parsedMarkets = JSON.parse(storedMarkets);
-                    setMarkets(parsedMarkets);
-                    if (parsedMarkets.length > 0) {
-                        setSelectedMarket(parsedMarkets[0]);
-                    }
+                const storedMarkets = MarketStorage.get().findAll();
+                if (storedMarkets?.length) {
+                    setMarkets(storedMarkets);
+                    setSelectedMarket(storedMarkets[0]);
+                } else {
+                    setMarkets([]);
+                    setSelectedMarket(null);
                 }
             } catch (error) {
                 console.error("Error loading markets:", error);
@@ -95,7 +96,7 @@ export default function Markets() {
                 position: "top-right",
                 transition: Bounce,
             });
-
+            triggerStateUpdate();
             setAmount("");
         } catch (error) {
             console.error("Error executing trade:", error);
@@ -158,9 +159,19 @@ export default function Markets() {
                 )
             );
             market.resolvedAt = new Date();
-            // TODO:
+            const updatedMarkets = MarketStorage.get().update(market);
+            if (!updatedMarkets) {
+                toast.warn(
+                    "Successfully resolved market, but failed saving changes!",
+                    {
+                        position: "top-left",
+                        transition: Bounce,
+                    }
+                );
+            } else {
+                setMarkets(updatedMarkets);
+            }
             setSelectedMarket(market);
-            // setMarkets()
         } catch (ex) {
             console.error(`Failed resolving market: ${market.address}`, ex);
             toast.error(
@@ -174,6 +185,7 @@ export default function Markets() {
             );
         }
     };
+
     const tableStyles = {
         container: "bg-gray-900 rounded-lg shadow-lg overflow-hidden",
         header: "bg-gray-800 px-6 py-4",
