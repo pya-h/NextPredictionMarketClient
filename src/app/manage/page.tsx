@@ -5,6 +5,7 @@ import { PredictionMarketContractsService } from "@/services/prediction-market-c
 import { PredictionMarket } from "@/types/prediction-market.type";
 import { Bounce, toast } from "react-toastify";
 import { MarketStorage } from "@/utils/market-storage";
+import BigNumber from "bignumber.js";
 
 const tableStyles = {
     container: "bg-gray-900 rounded-lg shadow-lg overflow-hidden",
@@ -39,7 +40,7 @@ export default function ManageMarkets() {
     const [amount, setAmount] = useState("");
     const [isLoading, setIsLoading] = useState(false);
     const [stateUpdateTrigger, setStateUpdateTrigger] = useState(false);
-    const [tokenPrices, setTokenPrices] = useState<number[]>([]);
+    const [tokenPrices, setTokenPrices] = useState<(BigNumber | null)[]>([]);
     const [userShares, setUserShares] = useState<number[]>([]);
 
     const triggerStateUpdate = () => {
@@ -52,13 +53,11 @@ export default function ManageMarkets() {
         }
         const service = PredictionMarketContractsService.get();
         service.getMarketAllOutcomePrices(selectedMarket).then((r) => {
-            r?.length && setTokenPrices(r.map((token) => token.price ?? 0));
+            r?.length && setTokenPrices(r.map((token) => token.price));
         });
-        service
-            .getUserSharesInMarket(selectedMarket, traderSelection)
-            .then((r) => {
-                r?.length && setUserShares(r.map((balance) => +balance));
-            });
+        service.getSharesInMarket(selectedMarket, traderSelection).then((r) => {
+            r?.length && setUserShares(r.map((balance) => +balance));
+        });
     }, [traderSelection, selectedMarket, stateUpdateTrigger]);
 
     useEffect(() => {
@@ -373,7 +372,7 @@ export default function ManageMarkets() {
                                         Current Price:
                                     </span>
                                     <span className="text-sm text-green-400 ml-3">
-                                        {tokenPrices[index]?.toFixed(4)} &nbsp;
+                                        {tokenPrices[index]?.toFixed()} &nbsp;
                                         {selectedMarket.collateralToken.symbol}
                                     </span>
                                 </div>
@@ -387,6 +386,7 @@ export default function ManageMarkets() {
                                 </div>
                             </div>
                         ))}
+                        
                     </div>
                 </motion.div>
             )}

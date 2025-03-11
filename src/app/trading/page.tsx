@@ -6,6 +6,7 @@ import { toast } from "react-toastify";
 import { PredictionMarketContractsService } from "@/services/prediction-market-contracts.service";
 import { motion } from "framer-motion";
 import { MarketStorage } from "@/utils/market-storage";
+import BigNumber from "bignumber.js";
 
 const tableStyles = {
     container: "bg-gray-800 rounded-lg shadow-lg p-6 mb-6",
@@ -28,8 +29,9 @@ export default function Trading() {
     const [market, setMarket] = useState<PredictionMarket | null>(null);
     const [currentTraderId, setCurrentTraderId] = useState<number>(0);
     const [tradeAmounts, setTradeAmounts] = useState<number[]>([]);
-    const [tokenPrices, setTokenPrices] = useState<number[]>([]);
+    const [tokenPrices, setTokenPrices] = useState<(BigNumber | null)[]>([]);
     const [userShares, setUserShares] = useState<number[]>([]);
+    const [marketShares, setMarketShares] = useState<number[]>([]);
     const [userCollateralBalance, setUserCollateralBalance] =
         useState<number>(0);
     const [stateUpdateTrigger, setStateUpdateTrigger] = useState(false);
@@ -45,10 +47,13 @@ export default function Trading() {
         }
         const service = PredictionMarketContractsService.get();
         service.getMarketAllOutcomePrices(market).then((r) => {
-            r?.length && setTokenPrices(r.map((token) => token.price ?? 0));
+            r?.length && setTokenPrices(r.map((token) => token.price));
         });
-        service.getUserSharesInMarket(market, currentTraderId).then((r) => {
+        service.getSharesInMarket(market, currentTraderId).then((r) => {
             r?.length && setUserShares(r);
+        });
+        service.getSharesInMarket(market).then((r) => {
+            r?.length && setMarketShares(r);
         });
 
         service
@@ -239,6 +244,7 @@ export default function Trading() {
                                     "IDx",
                                     "Outcome",
                                     "Price",
+                                    "Liquidity",
                                     "Shares",
                                     "Amount",
                                 ].map((header) => (
@@ -282,7 +288,10 @@ export default function Trading() {
                                                   ]?.title || "?"}
                                         </td>
                                         <td className={tableStyles.tableCell}>
-                                            {tokenPrices[index] ?? 0}
+                                            {tokenPrices[index]?.toFixed() ?? 0}
+                                        </td>
+                                        <td className={tableStyles.tableCell}>
+                                            {marketShares[index] ?? 0}
                                         </td>
                                         <td className={tableStyles.tableCell}>
                                             {userShares[index] ?? 0}

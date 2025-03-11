@@ -430,41 +430,28 @@ export class PredictionMarketContractsService {
             positionId
         );
 
-        return this.blockchainHelperService.toEthers(
+        return (await this.blockchainHelperService.toEthers(
             balanceWei,
             market.collateralToken
-        );
+        )).toNumber();
     }
 
-    async getUserConditionalTokenBalance(
-        traderId: number,
+    async getSharesInMarket(
         market: PredictionMarket,
-        indexSet: number,
-        subConditionId: string | null | undefined = null,
-        parentCollectionId: string | null | undefined = null
+        traderId: number | null = null
     ) {
-        const userBlockchainWallet = this.blockchainHelperService.getWallet(
-            "trader",
-            traderId
-        );
-        return (
-            await this.getConditionalTokenBalance(
-                market,
-                indexSet,
-                userBlockchainWallet.address,
-                subConditionId,
-                parentCollectionId
-            )
-        ).toNumber();
-    }
+        const target =
+            traderId == null
+                ? market.address
+                : this.blockchainHelperService.getWallet("trader", traderId)
+                      .address;
 
-    async getUserSharesInMarket(market: PredictionMarket, traderId: number) {
         const tokenBalances = await Promise.all(
             market.outcomes.map((outcome) =>
-                this.getUserConditionalTokenBalance(
-                    traderId,
+                this.getConditionalTokenBalance(
                     market,
-                    outcome.tokenIndex
+                    outcome.tokenIndex,
+                    target,
                 )
             )
         );
@@ -483,10 +470,10 @@ export class PredictionMarketContractsService {
             tokenBalances.push(
                 ...(await Promise.all(
                     outcome.sub.map((subOutcome) =>
-                        this.getUserConditionalTokenBalance(
-                            traderId,
+                        this.getConditionalTokenBalance(
                             market,
                             subOutcome.tokenIndex,
+                            target,
                             market.subConditions?.[outcome.title]?.id,
                             outcome.collectionId
                         )
@@ -494,7 +481,7 @@ export class PredictionMarketContractsService {
                 ))
             );
         }
-        return tokenBalances;
+        return tokenBalances
     }
 
     getMarketConditionalTokenBalance(
@@ -584,7 +571,7 @@ export class PredictionMarketContractsService {
                 index: outcome.tokenIndex,
                 price:
                     outcome.truenessRatio != null
-                        ? outcome.truenessRatio * amount
+                        ? new BigNumber(outcome.truenessRatio * amount)
                         : null,
                 token: outcome,
             })); // TODO: What about a market with subs?
@@ -616,7 +603,7 @@ export class PredictionMarketContractsService {
                     // FIXME: use subOutcomes data
                     // outcome: market.outcomes[i].title,
                     // index: market.outcomes[i].tokenIndex,
-                    price: price.abs().toNumber(),
+                    price: price.abs(),
                     // token: market.outcomes[i],
                 }));
             case PredictionMarketTypesEnum.FPMM.toString():
