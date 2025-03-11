@@ -7,7 +7,6 @@ import { PredictionMarketContractsService } from "@/services/prediction-market-c
 import { motion } from "framer-motion";
 import { MarketStorage } from "@/utils/market-storage";
 
-
 const tableStyles = {
     container: "bg-gray-800 rounded-lg shadow-lg p-6 mb-6",
     table: "min-w-full bg-gray-900 text-gray-200 rounded-lg overflow-hidden",
@@ -49,7 +48,7 @@ export default function Trading() {
             r?.length && setTokenPrices(r.map((token) => token.price ?? 0));
         });
         service.getUserSharesInMarket(market, currentTraderId).then((r) => {
-            r?.length && setUserShares(r.map((balance) => +balance));
+            r?.length && setUserShares(r);
         });
 
         service
@@ -60,12 +59,14 @@ export default function Trading() {
     useEffect(() => {
         try {
             const lastMarket = MarketStorage.get().getRecent();
-            if(!lastMarket) {
+            if (!lastMarket) {
                 return;
             }
             setMarket(lastMarket);
             if (lastMarket.outcomes) {
-                setTradeAmounts(new Array(lastMarket.outcomes.length).fill(0));
+                setTradeAmounts(
+                    new Array(lastMarket.atomicOutcomesCount).fill(0)
+                );
             }
         } catch (error) {
             console.error("Error loading recent market:", error);
@@ -125,7 +126,7 @@ export default function Trading() {
     };
 
     if (!market) {
-        return <div className="p-4">No market data found in localStorage</div>;
+        return <div className="p-4">No market data found in app storage.</div>;
     }
 
     const copyAddressToClipboard = () => {
@@ -251,40 +252,58 @@ export default function Trading() {
                             </tr>
                         </thead>
                         <tbody>
-                            {market.outcomes.map((outcome, index) => (
-                                <tr
-                                    key={index}
-                                    className={tableStyles.tableRow}
-                                >
-                                    <td className={tableStyles.tableCell}>
-                                        {outcome.tokenIndex}
-                                    </td>
-                                    <td className={tableStyles.tableCell}>
-                                        {outcome.title}
-                                    </td>
-                                    <td className={tableStyles.tableCell}>
-                                        {tokenPrices[index] ?? 0}
-                                    </td>
-                                    <td className={tableStyles.tableCell}>
-                                        {userShares[index] ?? 0}
-                                    </td>
-                                    <td className={tableStyles.tableCell}>
-                                        <input
-                                            type="number"
-                                            className={tableStyles.input}
-                                            value={tradeAmounts[index] || 0}
-                                            onChange={(e) =>
-                                                handleAmountChange(
-                                                    index,
-                                                    parseFloat(
-                                                        e.target.value
-                                                    ) || 0
-                                                )
-                                            }
-                                        />
-                                    </td>
-                                </tr>
-                            ))}
+                            {Array(market.atomicOutcomesCount)
+                                .fill(0)
+                                .map((_, index) => (
+                                    <tr
+                                        key={index}
+                                        className={tableStyles.tableRow}
+                                    >
+                                        <td className={tableStyles.tableCell}>
+                                            {index < market.outcomes.length
+                                                ? market.outcomes[index]
+                                                      .tokenIndex
+                                                : index}
+                                        </td>
+                                        <td className={tableStyles.tableCell}>
+                                            {index < market.outcomes.length
+                                                ? market.outcomes[index].title
+                                                : market.outcomes[
+                                                      ((index -
+                                                          market.outcomes
+                                                              .length) /
+                                                          2) |
+                                                          0
+                                                  ]?.sub?.[
+                                                      (index -
+                                                          market.outcomes
+                                                              .length) %
+                                                          2
+                                                  ]?.title || "?"}
+                                        </td>
+                                        <td className={tableStyles.tableCell}>
+                                            {tokenPrices[index] ?? 0}
+                                        </td>
+                                        <td className={tableStyles.tableCell}>
+                                            {userShares[index] ?? 0}
+                                        </td>
+                                        <td className={tableStyles.tableCell}>
+                                            <input
+                                                type="number"
+                                                className={tableStyles.input}
+                                                value={tradeAmounts[index] || 0}
+                                                onChange={(e) =>
+                                                    handleAmountChange(
+                                                        index,
+                                                        parseFloat(
+                                                            e.target.value
+                                                        ) || 0
+                                                    )
+                                                }
+                                            />
+                                        </td>
+                                    </tr>
+                                ))}
                         </tbody>
                     </table>
                 </div>

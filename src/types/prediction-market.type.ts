@@ -6,6 +6,7 @@ export type OutcomeToken = {
     title: string
     tokenIndex: number
     truenessRatio?: number
+    collectionId?: string
     sub?: OutcomeToken[]
 }
 
@@ -34,5 +35,6 @@ export type PredictionMarket = {
     status?: 'closed' | 'ongoing' | 'resolved'
     conditionId: string
     subConditions?: Record<string, SubConditionType>
+    atomicOutcomesCount: number
     // TODO:?
 }

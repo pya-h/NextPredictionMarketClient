@@ -41,7 +41,18 @@ export default function Creation() {
         const newMarket = await service.createMarket(
             question,
             outcomes,
-            +liquidity
+            +liquidity,
+            {
+                outcomeQuestions: Object.fromEntries(
+                    outcomes
+                        .map((title) =>
+                            !["yes", "no"].includes(title.toLowerCase())
+                                ? [title, `Will ${title} happen?`]
+                                : []
+                        )
+                        .filter((x) => x?.[0])
+                ), // TODO: Extra input for sub condition question
+            }
         );
         toast("Market successfully created!", {
             position: "top-right",
