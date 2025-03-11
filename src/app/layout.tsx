@@ -36,10 +36,8 @@ export default function RootLayout({
               <div className="container mx-auto flex justify-center space-x-8">
                 {[
                   { name: "Creation", href: "/creation" },
-                  { name: "Markets", href: "/markets" },
                   { name: "Trading", href: "/trading" },
-                  { name: "Resolution", href: "/resolution" },
-                  { name: "Redeeming", href: "/redeeming" },
+                  { name: "Manage", href: "/manage" },
                 ].map((tab) => (
                   <Link key={tab.name} href={tab.href} className="text-lg font-semibold hover:text-gray-300 transition-colors">
                     {tab.name}

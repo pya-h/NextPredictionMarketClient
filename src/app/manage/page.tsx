@@ -379,20 +379,14 @@ export default function ManageMarkets() {
                 >
                     <div className="mb-4">
                         <label className="block text-sm font-medium text-gray-300 mb-2">
-                            {!selectedMarket.resolvedAt
-                                ? `Amount ({selectedMarket.collateralToken.symbol})`
-                                : "Outcome Trueness Ratio"}
+                            Amount ({selectedMarket.collateralToken.symbol}) or Ratios separated by space
                         </label>
                         <input
                             type="number"
                             className={`${tableStyles.input} w-full`}
                             value={amount}
                             onChange={(e) => setAmount(e.target.value)}
-                            placeholder={
-                                !selectedMarket.resolvedAt
-                                    ? "Enter amount to trade"
-                                    : "Enter outcomes trueness splitted by space.."
-                            }
+                            placeholder={"Trade amount | Trueness ratios"}
                             min="0"
                             step="0.01"
                         />
