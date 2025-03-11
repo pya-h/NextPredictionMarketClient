@@ -38,6 +38,11 @@ export default function Creation() {
         setIsSubmitting(true);
 
         const service = PredictionMarketContractsService.get();
+        const newMarket = await service.createMarket(
+            question,
+            outcomes,
+            +liquidity
+        );
         toast("Market successfully created!", {
             position: "top-right",
             autoClose: 5000,
@@ -49,9 +54,8 @@ export default function Creation() {
             theme: "light",
             transition: Bounce,
         });
-        saveMarketToFile(
-            await service.createMarket(question, outcomes, +liquidity)
-        );
+
+        saveMarketToFile(newMarket);
         resetInputs();
     };
 
