@@ -103,6 +103,13 @@ export default function ManageMarkets() {
             return;
         }
 
+        if (!amount?.length || isNaN(+amount) || +amount <= 0) {
+            toast.error("Invalid amount!", {
+                position: "top-left",
+                transition: Bounce,
+            });
+            return;
+        }
         setIsLoading(true);
         try {
             const service = PredictionMarketContractsService.get();
@@ -116,14 +123,14 @@ export default function ManageMarkets() {
                 { isSelling }
             );
 
-            toast.success("Trade executed successfully!", {
+            toast.success("Traded successfully!", {
                 position: "top-right",
                 transition: Bounce,
             });
             triggerStateUpdate();
             setAmount("");
         } catch (error) {
-            console.error("Error executing trade:", error);
+            console.error("Error while trading:", error);
             toast.error("Failed to execute trade. Please try again.", {
                 position: "top-left",
                 transition: Bounce,
@@ -164,7 +171,14 @@ export default function ManageMarkets() {
                       idx === selectedOutcome ? 1 : 0
                   )
                 : amount.split(/\s+/g).map((x) => +x);
-            if (truenessRatios.length !== market.outcomes.length) {
+            let sumOfRatios = 0;
+            if (
+                truenessRatios.length !== market.outcomes.length ||
+                truenessRatios.findIndex((item) => {
+                    sumOfRatios += item;
+                    return isNaN(item) || item < 0;
+                }) !== -1
+            ) {
                 toast.error("Invalid trueness ratio array!", {
                     position: "top-left",
                     transition: Bounce,
@@ -177,13 +191,11 @@ export default function ManageMarkets() {
                 market.closedAt = new Date();
             }
 
-            await service.resolveMarket(
-                market,
-                market.outcomes.map((_, idx) =>
-                    idx === selectedOutcome ? 1 : 0
-                )
-            );
+            await service.resolveMarket(market, truenessRatios);
             market.resolvedAt = new Date();
+            market.outcomes.forEach((outcome, idx) => {
+                outcome.truenessRatio = truenessRatios[idx] / sumOfRatios;
+            });
             const updatedMarkets = MarketStorage.get().update(market);
             if (!updatedMarkets) {
                 toast.warn(
@@ -197,6 +209,10 @@ export default function ManageMarkets() {
                 setMarkets(updatedMarkets);
             }
             setSelectedMarket(market);
+            toast.success("Successfully resolved!", {
+                position: "top-right",
+                transition: Bounce,
+            });
         } catch (ex) {
             console.error(`Failed resolving market: ${market.address}`, ex);
             toast.error(
@@ -236,6 +252,10 @@ export default function ManageMarkets() {
                 selectedMarket,
                 selectedOutcome
             );
+            toast.success("Successfully redeemed!", {
+                position: "top-right",
+                transition: Bounce,
+            });
         } catch (ex) {
             console.error(
                 `Failed redeeming from market: ${selectedMarket.address}`,
@@ -251,6 +271,7 @@ export default function ManageMarkets() {
                 }
             );
         }
+        triggerStateUpdate();
         setIsLoading(false);
     };
 
@@ -352,7 +373,7 @@ export default function ManageMarkets() {
                                         Current Price:
                                     </span>
                                     <span className="text-sm text-green-400 ml-3">
-                                        {tokenPrices[index]?.toFixed(4)}
+                                        {tokenPrices[index]?.toFixed(4)} &nbsp;
                                         {selectedMarket.collateralToken.symbol}
                                     </span>
                                 </div>
@@ -370,29 +391,30 @@ export default function ManageMarkets() {
                 </motion.div>
             )}
 
-            {selectedMarket && selectedOutcome !== null && (
-                <motion.div
-                    className="bg-gray-800 rounded-lg shadow-lg p-6"
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                    transition={{ duration: 0.5, delay: 0.3 }}
-                >
-                    <div className="mb-4">
-                        <label className="block text-sm font-medium text-gray-300 mb-2">
-                            Amount ({selectedMarket.collateralToken.symbol}) or Ratios separated by space
-                        </label>
-                        <input
-                            type="number"
-                            className={`${tableStyles.input} w-full`}
-                            value={amount}
-                            onChange={(e) => setAmount(e.target.value)}
-                            placeholder={"Trade amount | Trueness ratios"}
-                            min="0"
-                            step="0.01"
-                        />
-                    </div>
-                </motion.div>
-            )}
+            {selectedMarket &&
+                selectedOutcome !== null &&
+                !selectedMarket?.resolvedAt && (
+                    <motion.div
+                        className="bg-gray-800 rounded-lg shadow-lg p-6"
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        transition={{ duration: 0.5, delay: 0.3 }}
+                    >
+                        <div className="mb-4">
+                            <label className="block text-sm font-medium text-gray-300 mb-2">
+                                Amount ({selectedMarket.collateralToken.symbol})
+                                or Ratios separated by space
+                            </label>
+                            <input
+                                type="text"
+                                className={`${tableStyles.input} w-full`}
+                                value={amount}
+                                onChange={(e) => setAmount(e.target.value)}
+                                placeholder={"Trade amount | Trueness ratios"}
+                            />
+                        </div>
+                    </motion.div>
+                )}
 
             {selectedMarket && selectedOutcome !== null && (
                 <motion.div
