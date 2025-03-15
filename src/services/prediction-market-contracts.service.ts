@@ -138,14 +138,8 @@ export class PredictionMarketContractsService {
             throw new Error(
                 "Unfortunately this cryptocurrency is not supported to be used as collateral token in this network."
             );
-        const marketMakerFactoryContract =
-                this.blockchainHelperService.getContractHandler(
-                    LmsrMarketMakerFactoryContractData
-                ),
-            collateralTokenContract =
-                this.blockchainHelperService.getContractHandler(
-                    collateralToken
-                );
+        const collateralTokenContract =
+            this.blockchainHelperService.getContractHandler(collateralToken);
         const initialLiquidity = ethers.parseEther(
             initialLiquidityInEth.toString()
         );
@@ -159,22 +153,6 @@ export class PredictionMarketContractsService {
             ), // or commented?
         ];
         let atomicOutcomesCount = outcomes.length;
-        const subConditions: Record<string, SubConditionType> = {};
-        if (outcomeQuestions && Object.keys(outcomeQuestions)?.length) {
-            for (const outcome in outcomeQuestions) {
-                const qf =
-                    Date.now().toString() + "-" + outcomeQuestions[outcome];
-                const condition = await this.createCondition(qf, oracle, 2);
-                atomicOutcomesCount *= 2;
-                conditions.push(condition);
-                subConditions[outcome] = {
-                    question: outcomeQuestions[outcome],
-                    questionId: condition.questionId,
-                    id: condition.id,
-                    questionFormatted: condition.question,
-                } as SubConditionType;
-            }
-        }
 
         const operatorCollateralBalance =
             await this.blockchainHelperService.call<bigint>(
@@ -212,49 +190,28 @@ export class PredictionMarketContractsService {
             "#DeployMarket: Collateral Use Approval for AMM Factory - SUCCESS"
         );
 
-        const lmsrFactoryTx =
-            await this.blockchainHelperService.call<ethers.ContractTransactionReceipt>(
-                marketMakerFactoryContract,
-                { name: "createLMSRMarketMaker" },
-                ConditionTokenContractData.address, // pmSystem
-                collateralToken.address,
-                conditions.map((condition) => condition.id),
-                0, // market fee
-                "0x0000000000000000000000000000000000000000", // whitelist
-                initialLiquidity
-            );
-
-        console.log(
-            `#DeployMarket: LMSR MARKET CREATION - SUCCESS => txHash: ${lmsrFactoryTx.hash}`
-        );
-
-        const startedAt = new Date();
-
-        const creationLog =
-            await this.blockchainHelperService.getEventLogFromReceipt(
-                lmsrFactoryTx,
-                marketMakerFactoryContract,
-                "LMSRMarketMakerCreation"
-            );
-
-        if (!creationLog[0]?.args?.["lmsrMarketMaker"]) {
-            console.error(
-                "Failed to find out the created market maker contract address data: creationLog:",
-                null,
-                { data: { tx: JSON.stringify(lmsrFactoryTx, null, 2) } }
-            );
-            throw new Error(
-                "Although the market creation seems ok, but server fails to find its contract!"
-            );
+        const subConditions: Record<string, SubConditionType> = {};
+        if (outcomeQuestions && Object.keys(outcomeQuestions)?.length) {
+            for (const outcome in outcomeQuestions) {
+                const qf =
+                    Date.now().toString() + "-" + outcomeQuestions[outcome];
+                const condition = await this.createCondition(qf, oracle, 2);
+                atomicOutcomesCount *= 2;
+                conditions.push(condition);
+                subConditions[outcome] = {
+                    question: outcomeQuestions[outcome],
+                    questionId: condition.questionId,
+                    id: condition.id,
+                    questionFormatted: condition.question,
+                } as SubConditionType;
+            }
         }
 
-        console.log(
-            `#DeployMarket: Find Market Address from Market Creation Log - SUCCESS => MarketAddress: LMSRMarketMakerCreation
-      }\n#DeployMarket: Market Successfully Deployed To Blockchain.`
-        );
-
+        const primaryMarketCreationLog = await this.createLmsrMarketMaker(collateralToken.address, conditions[0].id, initialLiquidity);
+        const startedAt = new Date();
+        
         return {
-            address: creationLog[0].args["lmsrMarketMaker"],
+            address: primaryMarketCreationLog[0].args["lmsrMarketMaker"],
             chain: currentChain,
             collateralToken,
             conditionId: conditions[0].id,
@@ -281,6 +238,56 @@ export class PredictionMarketContractsService {
             })),
             atomicOutcomesCount,
         } as PredictionMarket;
+    }
+
+    async createLmsrMarketMaker(
+        collateralTokenAddress: string,
+        conditionId: string,
+        initialLiquidity: bigint
+    ): Promise<ethers.LogDescription[]> {
+        const marketMakerFactoryContract =
+            this.blockchainHelperService.getContractHandler(
+                LmsrMarketMakerFactoryContractData
+            );
+        const lmsrFactoryTx =
+            await this.blockchainHelperService.call<ethers.ContractTransactionReceipt>(
+                marketMakerFactoryContract,
+                { name: "createLMSRMarketMaker" },
+                ConditionTokenContractData.address, // pmSystem
+                collateralTokenAddress,
+                [conditionId],
+                0, // market fee
+                "0x0000000000000000000000000000000000000000", // whitelist
+                initialLiquidity
+            );
+
+        console.log(
+            `#DeployMarket: LMSR MARKET CREATION - SUCCESS => txHash: ${lmsrFactoryTx.hash}`
+        );
+
+        const creationLog =
+            await this.blockchainHelperService.getEventLogFromReceipt(
+                lmsrFactoryTx,
+                marketMakerFactoryContract,
+                "LMSRMarketMakerCreation"
+            );
+
+        if (!creationLog[0]?.args?.["lmsrMarketMaker"]) {
+            console.error(
+                "Failed to find out the created market maker contract address data: creationLog:",
+                null,
+                { data: { tx: JSON.stringify(lmsrFactoryTx, null, 2) } }
+            );
+            throw new Error(
+                "Although the market creation seems ok, but server fails to find its contract!"
+            );
+        }
+
+        console.log(
+            `#DeployMarket: Find Market Address from Market Creation Log - SUCCESS => MarketAddress: LMSRMarketMakerCreation
+      }\n#DeployMarket: Market Successfully Deployed To Blockchain.`
+        );
+        return creationLog;
     }
 
     getCollectionId(
