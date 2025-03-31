@@ -164,7 +164,9 @@ export class PredictionMarketContractsService {
             `#DeployMarket: Get Operator Collateral Balance - SUCCESS => ${operatorCollateralBalance}`
         );
 
-        const subMarketsCount = outcomeQuestions ? +(Object.keys(outcomeQuestions)?.length) : 0;
+        const subMarketsCount = outcomeQuestions
+            ? +Object.keys(outcomeQuestions)?.length
+            : 0;
 
         if (
             operatorCollateralBalance <
@@ -174,7 +176,9 @@ export class PredictionMarketContractsService {
                 collateralTokenContract,
                 { name: "deposit" },
                 {
-                    value: initialLiquidity * BigInt(subMarketsCount + 1) - operatorCollateralBalance,
+                    value:
+                        initialLiquidity * BigInt(subMarketsCount + 1) -
+                        operatorCollateralBalance,
                 }
             );
 
@@ -200,8 +204,6 @@ export class PredictionMarketContractsService {
             initialLiquidity
         );
 
-        const startedAt = new Date();
-
         const primaryMarket = {
             address: primaryMarketCreationLog[0].args["lmsrMarketMaker"],
             chain: currentChain,
@@ -213,7 +215,7 @@ export class PredictionMarketContractsService {
             creator: this.blockchainHelperService.operatorAccount.address,
             oracle,
             initialLiquidity: initialLiquidityInEth,
-            startedAt,
+            startedAt: new Date(),
             type: "lmsr",
             outcomes: outcomes.map((outcomeTitle, idx) => ({
                 title: outcomeTitle,
@@ -229,6 +231,31 @@ export class PredictionMarketContractsService {
                     oracle,
                     2
                 );
+
+                const log = await this.createLmsrMarketMaker(
+                    collateralToken.address,
+                    condition.id,
+                    initialLiquidity
+                );
+                primaryMarket.subMarkets[outcome] = {
+                    address: log[0].args["lmsrMarketMaker"],
+                    chain: currentChain,
+                    collateralToken,
+                    conditionId: condition.id,
+                    question: condition.question,
+                    questionId: condition.questionId,
+                    questionFormatted: condition.questionFormatted,
+                    creator:
+                        this.blockchainHelperService.operatorAccount.address,
+                    oracle,
+                    initialLiquidity: initialLiquidityInEth,
+                    startedAt: new Date(),
+                    type: "lmsr",
+                    outcomes: ["Yes", "No"].map((title, tokenIndex) => ({
+                        title,
+                        tokenIndex,
+                    })),
+                };
             }
         }
 
@@ -433,7 +460,7 @@ export class PredictionMarketContractsService {
         ).toNumber();
     }
 
-    /*async getSharesInMarket(
+    async getSharesInMarket(
         market: PredictionMarket,
         traderId: number | null = null
     ) {
@@ -453,49 +480,9 @@ export class PredictionMarketContractsService {
             )
         );
 
-        if (
-            !market.atomicOutcomesCount ||
-            market.outcomes.length === market.atomicOutcomesCount
-        ) {
-            return tokenBalances;
-        }
-        for (const outcome of market.outcomes) {
-            if (!outcome.sub || !Object.values(outcome.sub)?.length) {
-                continue;
-            }
-
-            tokenBalances.push(
-                ...(await Promise.all(
-                    outcome.sub.map(async (subOutcome) => {
-                        const parentCollectionId = await this.getCollectionId(
-                            market.conditionId,
-                            outcome.tokenIndex
-                        );
-                        const balance = await this.getConditionalTokenBalance(
-                            market,
-                            subOutcome.tokenIndex,
-                            target,
-                            market.subConditions?.[outcome.title]?.id,
-                            outcome.collectionId,
-                            true,
-                            outcome
-                        );
-                        console.log({
-                            tokenIndex: subOutcome.tokenIndex,
-                            title: subOutcome.title,
-                            parent: parentCollectionId,
-                            parentF: outcome.collectionId,
-                            parentTitle: outcome.title,
-                            subCondition: market.subConditions?.[outcome.title],
-                            balance,
-                        });
-                        return balance;
-                    })
-                ))
-            );
-        }
+        
         return tokenBalances;
-    }*/
+    }
 
     // async getSharesInMarket(
     //     market: PredictionMarket,
@@ -506,93 +493,29 @@ export class PredictionMarketContractsService {
     //             ? market.address
     //             : this.blockchainHelperService.getWallet("trader", traderId)
     //                   .address;
-    //     if (
-    //         !market.atomicOutcomesCount ||
-    //         market.outcomes.length === market.atomicOutcomesCount
-    //     ) {
-    //         const tokenBalances = await Promise.all(
-    //             market.outcomes.map((outcome) =>
-    //                 this.getConditionalTokenBalance(
+    //     const tokenBalances: number[] = [];
+    //     const subConditions = Object.values(market.subConditions ?? {});
+    //     const subOutcomes = market.outcomes[0].sub;
+    //     for (const subOutcome of subOutcomes ?? []) {
+    //         for (const outcome of market.outcomes) {
+    //             const parentCollectionId = await this.getCollectionId(
+    //                 market.conditionId,
+    //                 outcome.tokenIndex
+    //             );
+    //             tokenBalances.push(
+    //                 await this.getConditionalTokenBalance(
     //                     market,
-    //                     outcome.tokenIndex,
-    //                     target
+    //                     subOutcome.tokenIndex,
+    //                     target,
+    //                     subConditions[0].id,
+    //                     parentCollectionId
     //                 )
-    //             )
-    //         );
-
-    //         return tokenBalances;
+    //             );
+    //         }
     //     }
-    //     // in sub outcome case
-    //     const tokenBalances: number[] = []
 
-    //     // for (const outcome of market.outcomes) {
-    //     //     if (!outcome.sub || !Object.values(outcome.sub)?.length) {
-    //     //         continue; // FIXME: This kind of outcomes should be managed too
-    //     //     }
-    //     //     outcome.collectionId = await this.getCollectionId(market.conditionId, outcome.tokenIndex);
-    //     //     tokenBalances.push(
-    //     //         ...(await Promise.all(
-    //                 // Array(outcome.sub.length ** market.outcomes.length).fill(0).map((_,i) =>
-    //                 //     this.getConditionalTokenBalance(
-    //                 //         market,
-    //                 //         i,
-    //                 //         target,
-    //                 //         market.subConditions?.[outcome.title]?.id,
-    //                 //         outcome.collectionId,
-    //                 //         false,
-    //                 //     )
-    //                 // )
-    //     //         ))
-    //     //     );
-    //     // }
-    //     // return tokenBalances;
-    //     const parent = await this.getCollectionId(market.conditionId, 0);
-    //     return Promise.all(
-    //         Array(market.atomicOutcomesCount).fill(0).map((_,i) =>
-    // this.getConditionalTokenBalance(
-    //     market,
-    //     i,
-    //     target,
-    //     market.subConditions?.["B"]?.id,
-    //     parent,
-    //     false,
-    // )
-    //         )
-    //     )
+    //     return tokenBalances;
     // }
-
-    async getSharesInMarket(
-        market: PredictionMarket,
-        traderId: number | null = null
-    ) {
-        const target =
-            traderId == null
-                ? market.address
-                : this.blockchainHelperService.getWallet("trader", traderId)
-                      .address;
-        const tokenBalances: number[] = [];
-        const subConditions = Object.values(market.subConditions ?? {});
-        const subOutcomes = market.outcomes[0].sub;
-        for (const subOutcome of subOutcomes ?? []) {
-            for (const outcome of market.outcomes) {
-                const parentCollectionId = await this.getCollectionId(
-                    market.conditionId,
-                    outcome.tokenIndex
-                );
-                tokenBalances.push(
-                    await this.getConditionalTokenBalance(
-                        market,
-                        subOutcome.tokenIndex,
-                        target,
-                        subConditions[0].id,
-                        parentCollectionId
-                    )
-                );
-            }
-        }
-
-        return tokenBalances;
-    }
 
     getMarketConditionalTokenBalance(
         market: PredictionMarket,

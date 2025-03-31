@@ -7,7 +7,6 @@ export type OutcomeToken = {
     title: string
     tokenIndex: number
     truenessRatio?: number
-    collectionId?: string
 }
 
 export type ConditionType = {
