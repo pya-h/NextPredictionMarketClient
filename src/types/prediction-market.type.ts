@@ -1,3 +1,4 @@
+import { ethers } from "ethers"
 import { Chain } from "./chain.type"
 import { CollateralTokenType } from "./crypto-token.type"
 import { Oracle } from "./oracle.type"
@@ -7,14 +8,15 @@ export type OutcomeToken = {
     tokenIndex: number
     truenessRatio?: number
     collectionId?: string
-    sub?: OutcomeToken[]
 }
 
-export type SubConditionType = {
+export type ConditionType = {
     id: string
     question: string,
     questionFormatted?: string,
     questionId: string,
+    receipt: ethers.TransactionReceipt,
+    outcomesCount: number
 }
 
 export type PredictionMarket = {
@@ -34,7 +36,6 @@ export type PredictionMarket = {
     resolvedAt?: Date,
     status?: 'closed' | 'ongoing' | 'resolved'
     conditionId: string
-    subConditions?: Record<string, SubConditionType>
-    atomicOutcomesCount: number
-    // TODO:?
+    subMarkets?: Record<string, PredictionMarket>
+    parentAddress?: string
 }

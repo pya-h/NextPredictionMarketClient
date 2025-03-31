@@ -32,7 +32,7 @@ export class LmsrMarketHelperService {
       this.blockchainHelperService.getAmmContractHandler(market),
       { name: 'calcNetCost', isView: true },
       Array.from(
-        { length: market.atomicOutcomesCount },
+        { length: market.outcomes.length },
         (_: unknown, index: number) =>
           index === outcomeIndex ? amountInWei : 0n,
       ),

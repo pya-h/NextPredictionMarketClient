@@ -46,7 +46,7 @@ export default function Creation() {
                 outcomeQuestions: Object.fromEntries(
                     outcomes
                         .map((title) =>
-                            !["yes", "no", "b"].includes(title.toLowerCase())
+                            !["yes", "no"].includes(title.toLowerCase())
                                 ? [title, `Will ${title} happen?`]
                                 : []
                         )

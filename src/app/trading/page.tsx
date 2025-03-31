@@ -69,9 +69,7 @@ export default function Trading() {
             }
             setMarket(lastMarket);
             if (lastMarket.outcomes) {
-                setTradeAmounts(
-                    new Array(lastMarket.atomicOutcomesCount).fill(0)
-                );
+                setTradeAmounts(new Array(lastMarket.outcomes.length).fill(0));
             }
         } catch (error) {
             console.error("Error loading recent market:", error);
@@ -258,9 +256,8 @@ export default function Trading() {
                             </tr>
                         </thead>
                         <tbody>
-                            {Array(market.atomicOutcomesCount)
-                                .fill(0)
-                                .map((_, index) => (
+                            {Array.from({ length: market.outcomes.length }).map(
+                                (_, index) => (
                                     <tr
                                         key={index}
                                         className={tableStyles.tableRow}
@@ -312,7 +309,8 @@ export default function Trading() {
                                             />
                                         </td>
                                     </tr>
-                                ))}
+                                )
+                            )}
                         </tbody>
                     </table>
                 </div>

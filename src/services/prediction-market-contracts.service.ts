@@ -8,6 +8,7 @@ import { BlockchainHelperService } from "./blockchain-helper.service";
 import { OracleTypesEnum } from "@/enums/oracle-types.enum";
 import { LmsrMarketMakerFactoryContractData } from "@/abis/lmsr-market.abi";
 import {
+    ConditionType,
     OutcomeToken,
     PredictionMarket,
     SubConditionType,
@@ -63,6 +64,7 @@ export class PredictionMarketContractsService {
         oracle: Oracle,
         outcomesCount: number
     ) {
+        const formattedQuestion = Date.now().toString() + "-" + question;
         const questionId = this.toKeccakHash(question);
 
         const receipt =
@@ -86,9 +88,10 @@ export class PredictionMarketContractsService {
             receipt,
             id: conditionId,
             question,
+            formattedQuestion,
             questionId,
             outcomesCount,
-        };
+        } as ConditionType;
     }
 
     getOracle() {
@@ -144,15 +147,11 @@ export class PredictionMarketContractsService {
             initialLiquidityInEth.toString()
         );
 
-        const questionFormatted = Date.now().toString() + "-" + question;
-        const conditions = [
-            await this.createCondition(
-                questionFormatted,
-                oracle,
-                outcomes.length
-            ), // or commented?
-        ];
-        let atomicOutcomesCount = outcomes.length;
+        const primaryCondition = await this.createCondition(
+            question,
+            oracle,
+            outcomes.length
+        );
 
         const operatorCollateralBalance =
             await this.blockchainHelperService.call<bigint>(
@@ -190,35 +189,22 @@ export class PredictionMarketContractsService {
             "#DeployMarket: Collateral Use Approval for AMM Factory - SUCCESS"
         );
 
-        const subConditions: Record<string, SubConditionType> = {};
-        if (outcomeQuestions && Object.keys(outcomeQuestions)?.length) {
-            for (const outcome in outcomeQuestions) {
-                const qf =
-                    Date.now().toString() + "-" + outcomeQuestions[outcome];
-                const condition = await this.createCondition(qf, oracle, 2);
-                atomicOutcomesCount *= 2;
-                conditions.push(condition);
-                subConditions[outcome] = {
-                    question: outcomeQuestions[outcome],
-                    questionId: condition.questionId,
-                    id: condition.id,
-                    questionFormatted: condition.question,
-                } as SubConditionType;
-            }
-        }
+        const primaryMarketCreationLog = await this.createLmsrMarketMaker(
+            collateralToken.address,
+            primaryCondition.id,
+            initialLiquidity
+        );
 
-        const primaryMarketCreationLog = await this.createLmsrMarketMaker(collateralToken.address, conditions[0].id, initialLiquidity);
         const startedAt = new Date();
-        
-        return {
+
+        const primaryMarket = {
             address: primaryMarketCreationLog[0].args["lmsrMarketMaker"],
             chain: currentChain,
             collateralToken,
-            conditionId: conditions[0].id,
-            question,
-            questionId: conditions[0].questionId,
-            questionFormatted,
-            subConditions,
+            conditionId: primaryCondition.id,
+            question: primaryCondition.question,
+            questionId: primaryCondition.questionId,
+            questionFormatted: primaryCondition.questionFormatted,
             creator: this.blockchainHelperService.operatorAccount.address,
             oracle,
             initialLiquidity: initialLiquidityInEth,
@@ -227,17 +213,21 @@ export class PredictionMarketContractsService {
             outcomes: outcomes.map((outcomeTitle, idx) => ({
                 title: outcomeTitle,
                 tokenIndex: idx,
-                ...(subConditions[outcomeTitle]
-                    ? {
-                          sub: [
-                              { title: "Yes", tokenIndex: 0 },
-                              { title: "No", tokenIndex: 1 },
-                          ],
-                      }
-                    : {}),
             })),
-            atomicOutcomesCount,
         } as PredictionMarket;
+
+        if (outcomeQuestions && Object.keys(outcomeQuestions)?.length) {
+            primaryMarket.subMarkets = {};
+            for (const outcome in outcomeQuestions) {
+                const condition = await this.createCondition(
+                    outcomeQuestions[outcome],
+                    oracle,
+                    2
+                );
+            }
+        }
+
+        return primaryMarket;
     }
 
     async createLmsrMarketMaker(
@@ -696,15 +686,14 @@ export class PredictionMarketContractsService {
                 const prices = await Promise.all(
                     (
                         await Promise.all(
-                            Array(market.atomicOutcomesCount)
-                                .fill(0)
-                                .map((_, index) =>
+                            Array.from({ length: market.outcomes.length }).map(
+                                (_, index) =>
                                     this.lmsrMarketHelperService.calculateOutcomeTokenPrice(
                                         market,
                                         index,
                                         amountInWei
                                     )
-                                )
+                            )
                         )
                     ).map((priceInWei) =>
                         this.blockchainHelperService.toEthers(
