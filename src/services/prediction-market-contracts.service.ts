@@ -164,12 +164,17 @@ export class PredictionMarketContractsService {
             `#DeployMarket: Get Operator Collateral Balance - SUCCESS => ${operatorCollateralBalance}`
         );
 
-        if (operatorCollateralBalance < initialLiquidity) {
+        const subMarketsCount = outcomeQuestions ? +(Object.keys(outcomeQuestions)?.length) : 0;
+
+        if (
+            operatorCollateralBalance <
+            initialLiquidity * BigInt(subMarketsCount + 1)
+        ) {
             await this.blockchainHelperService.call(
                 collateralTokenContract,
                 { name: "deposit" },
                 {
-                    value: initialLiquidity - operatorCollateralBalance,
+                    value: initialLiquidity * BigInt(subMarketsCount + 1) - operatorCollateralBalance,
                 }
             );
 
@@ -182,7 +187,7 @@ export class PredictionMarketContractsService {
             collateralTokenContract,
             { name: "approve" },
             LmsrMarketMakerFactoryContractData.address,
-            initialLiquidity
+            initialLiquidity * BigInt(subMarketsCount + 1)
         );
 
         console.log(
@@ -216,7 +221,7 @@ export class PredictionMarketContractsService {
             })),
         } as PredictionMarket;
 
-        if (outcomeQuestions && Object.keys(outcomeQuestions)?.length) {
+        if (subMarketsCount) {
             primaryMarket.subMarkets = {};
             for (const outcome in outcomeQuestions) {
                 const condition = await this.createCondition(
