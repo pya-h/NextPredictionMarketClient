@@ -35,6 +35,6 @@ export type PredictionMarket = {
     resolvedAt?: Date,
     status?: 'closed' | 'ongoing' | 'resolved'
     conditionId: string
-    subMarkets?: Record<string, PredictionMarket>
+    subMarkets: Record<string, PredictionMarket>
     parentAddress?: string
 }

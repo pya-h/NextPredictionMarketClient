@@ -11,7 +11,6 @@ import {
     ConditionType,
     OutcomeToken,
     PredictionMarket,
-    SubConditionType,
 } from "@/types/prediction-market.type";
 import { Oracle } from "@/types/oracle.type";
 
@@ -255,6 +254,7 @@ export class PredictionMarketContractsService {
                         title,
                         tokenIndex,
                     })),
+                    subMarkets: {},
                 };
             }
         }
@@ -470,18 +470,29 @@ export class PredictionMarketContractsService {
                 : this.blockchainHelperService.getWallet("trader", traderId)
                       .address;
 
-        const tokenBalances = await Promise.all(
-            market.outcomes.map((outcome) =>
-                this.getConditionalTokenBalance(
-                    market,
-                    outcome.tokenIndex,
-                    target
-                )
-            )
+        return Promise.all(
+            market.outcomes.map(async (outcome) => {
+                return {
+                    balance: await this.getConditionalTokenBalance(
+                        market,
+                        outcome.tokenIndex,
+                        target
+                    ),
+                    sub: market.subMarkets?.[outcome.title]
+                        ? await Promise.all(
+                              market.subMarkets[outcome.title].outcomes.map(
+                                  (so) =>
+                                      this.getConditionalTokenBalance(
+                                          market.subMarkets[outcome.title],
+                                          so.tokenIndex,
+                                          target
+                                      )
+                              )
+                          )
+                        : null,
+                };
+            })
         );
-
-        
-        return tokenBalances;
     }
 
     // async getSharesInMarket(
@@ -597,46 +608,42 @@ export class PredictionMarketContractsService {
         );
         if (market.closedAt) {
             if (amount < 0) {
-                amount *= -1; // Buy and sell price in resolved market are the same.
+                amount *= -1;
             }
             return market.outcomes?.map((outcome) => ({
-                outcome: outcome.title,
-                index: outcome.tokenIndex,
+                outcome,
                 price:
                     outcome.truenessRatio != null
                         ? new BigNumber(outcome.truenessRatio * amount)
                         : null,
-                token: outcome,
-            })); // TODO: What about a market with subs?
+            }));
         }
         switch (market.type) {
             case PredictionMarketTypesEnum.LMSR.toString():
                 const prices = await Promise.all(
                     (
                         await Promise.all(
-                            Array.from({ length: market.outcomes.length }).map(
-                                (_, index) =>
-                                    this.lmsrMarketHelperService.calculateOutcomeTokenPrice(
-                                        market,
-                                        index,
-                                        amountInWei
-                                    )
-                            )
+                            market.outcomes.map(async (outcome) => ({
+                                outcome,
+                                price: await this.lmsrMarketHelperService.calculateOutcomeTokenPrice(
+                                    market,
+                                    outcome.tokenIndex,
+                                    amountInWei
+                                ),
+                            }))
                         )
-                    ).map((priceInWei) =>
-                        this.blockchainHelperService.toEthers(
-                            priceInWei,
+                    ).map(async ({ price, outcome }) => ({
+                        outcome,
+                        price: await this.blockchainHelperService.toEthers(
+                            price,
                             market.collateralToken
-                        )
-                    )
+                        ),
+                    }))
                 );
 
-                return prices.map((price, i) => ({
-                    // FIXME: use subOutcomes data
-                    // outcome: market.outcomes[i].title,
-                    // index: market.outcomes[i].tokenIndex,
+                return prices.map(({ price, outcome }, i) => ({
                     price: price.abs(),
-                    // token: market.outcomes[i],
+                    outcome,
                 }));
             case PredictionMarketTypesEnum.FPMM.toString():
                 throw new Error("Not fully implemented yet.");
@@ -645,6 +652,30 @@ export class PredictionMarketContractsService {
         }
     }
 
+    async getMarketOutcomePricesNested(
+        market: PredictionMarket,
+        amount: number = 1
+    ) {
+        const primaryPrices = await this.getMarketAllOutcomePrices(
+            market,
+            amount
+        );
+        if (!primaryPrices) {
+            return [];
+        }
+        return Promise.all(
+            primaryPrices?.map(async ({ outcome, price }) => ({
+                price,
+                outcome,
+                sub: market.subMarkets[outcome.title]?.outcomes?.length
+                    ? await this.getMarketAllOutcomePrices(
+                          market.subMarkets[outcome.title],
+                          amount
+                      )
+                    : null,
+            }))
+        );
+    }
     async closeMarket(market: PredictionMarket) {
         const marketMakerContract =
             this.blockchainHelperService.getAmmContractHandler(market);

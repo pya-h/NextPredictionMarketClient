@@ -1,7 +1,10 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { PredictionMarket } from "../../types/prediction-market.type";
+import {
+    OutcomeToken,
+    PredictionMarket,
+} from "../../types/prediction-market.type";
 import { toast } from "react-toastify";
 import { PredictionMarketContractsService } from "@/services/prediction-market-contracts.service";
 import { motion } from "framer-motion";
@@ -28,10 +31,34 @@ const tableStyles = {
 export default function Trading() {
     const [market, setMarket] = useState<PredictionMarket | null>(null);
     const [currentTraderId, setCurrentTraderId] = useState<number>(0);
-    const [tradeAmounts, setTradeAmounts] = useState<number[]>([]);
-    const [tokenPrices, setTokenPrices] = useState<(BigNumber | null)[]>([]);
-    const [userShares, setUserShares] = useState<number[]>([]);
-    const [marketShares, setMarketShares] = useState<number[]>([]);
+    const [tradeAmounts, setTradeAmounts] = useState<
+        { amount: number; sub?: number[] }[]
+    >([]);
+    const [tokenPrices, setTokenPrices] = useState<
+        {
+            price: BigNumber | null;
+            outcome: OutcomeToken;
+            sub:
+                | {
+                      outcome: OutcomeToken;
+                      price: BigNumber | null;
+                  }[]
+                | null
+                | undefined;
+        }[]
+    >([]);
+    const [userShares, setUserShares] = useState<
+        {
+            balance: number;
+            sub: number[] | null;
+        }[]
+    >([]);
+    const [marketShares, setMarketShares] = useState<
+        {
+            balance: number;
+            sub: number[] | null;
+        }[]
+    >([]);
     const [userCollateralBalance, setUserCollateralBalance] =
         useState<number>(0);
     const [stateUpdateTrigger, setStateUpdateTrigger] = useState(false);
@@ -46,8 +73,8 @@ export default function Trading() {
             return;
         }
         const service = PredictionMarketContractsService.get();
-        service.getMarketAllOutcomePrices(market).then((r) => {
-            r?.length && setTokenPrices(r.map((token) => token.price));
+        service.getMarketOutcomePricesNested(market).then((r) => {
+            r?.length && setTokenPrices(r);
         });
         service.getSharesInMarket(market, currentTraderId).then((r) => {
             r?.length && setUserShares(r);
@@ -76,13 +103,21 @@ export default function Trading() {
         }
     }, []);
 
-    const handleAmountChange = (index: number, value: number) => {
+    const handleAmountChange = (
+        index: number,
+        value: number,
+        subIndex: number | null = null
+    ) => {
         const newAmounts = [...tradeAmounts];
-        newAmounts[index] = value;
+        if (subIndex == null) {
+            newAmounts[index].amount = value;
+        } else if (newAmounts[index].sub) {
+            newAmounts[index].sub[subIndex] = value;
+        }
         setTradeAmounts(newAmounts);
     };
 
-    const handleTrade = (isSelling: boolean = false) => {
+    const handleTrade = async (isSelling: boolean = false) => {
         if (isLoading) {
             toast.warn("Wait asshole!", {
                 position: "top-center",
@@ -99,33 +134,67 @@ export default function Trading() {
             return;
         }
         const service = PredictionMarketContractsService.get();
-        service
-            .trade(currentTraderId, market, tradeAmounts, { isSelling })
-            .then(() => {
-                triggerStateUpdate();
-                toast.success("Trade was successfull!", {
-                    position: "top-right",
-                    autoClose: 3000,
-                    hideProgressBar: false,
-                    closeOnClick: true,
-                    pauseOnHover: true,
-                    draggable: true,
-                });
-                setIsLoading(false);
-            })
-            .catch((ex) => {
-                triggerStateUpdate();
-                toast.error(`Trade failed! ${ex.message.substring(0, 20)}`, {
+        try {
+            const tasks = [];
+            if (tradeAmounts.findIndex((x) => x.amount) !== -1) {
+                tasks.push(
+                    service.trade(
+                        currentTraderId,
+                        market,
+                        tradeAmounts.map((x) => x.amount),
+                        { isSelling }
+                    )
+                );
+            }
+
+            for (let i = 0; i < tradeAmounts.length; i++) {
+                if (
+                    tradeAmounts[i].sub?.length &&
+                    tradeAmounts[i].sub?.findIndex((x) => x) !== -1
+                ) {
+                    tasks.push(
+                        service.trade(
+                            currentTraderId,
+                            market.subMarkets[market.outcomes[i].title],
+                            (tradeAmounts[i].sub ?? []).map((x) => x ?? 0),
+                            { isSelling }
+                        )
+                    );
+                }
+            }
+
+            const errors = (await Promise.allSettled(tasks)).filter(
+                (result) => result.status !== "fulfilled"
+            );
+            if (errors?.length) {
+                console.error(errors);
+                throw new Error(errors.map((x) => x.reason).join("\n"));
+            }
+            toast.success("Trade was successfull!", {
+                position: "top-right",
+                autoClose: 3000,
+                hideProgressBar: false,
+                closeOnClick: true,
+                pauseOnHover: true,
+                draggable: true,
+            });
+        } catch (ex) {
+            toast.error(
+                `Trade failed! ${(ex as Error).message.substring(0, 20)}`,
+                {
                     position: "top-left",
                     autoClose: 3000,
                     hideProgressBar: false,
                     closeOnClick: true,
                     pauseOnHover: true,
                     draggable: true,
-                });
-                console.error(ex);
-                setIsLoading(false);
-            });
+                }
+            );
+            console.error(ex);
+        } finally {
+            triggerStateUpdate();
+            setIsLoading(false);
+        }
     };
 
     if (!market) {
@@ -256,61 +325,111 @@ export default function Trading() {
                             </tr>
                         </thead>
                         <tbody>
-                            {Array.from({ length: market.outcomes.length }).map(
-                                (_, index) => (
+                            {market.outcomes.map((outcome) => [
+                                <tr
+                                    key={outcome.tokenIndex}
+                                    className={tableStyles.tableRow}
+                                >
+                                    <td className={tableStyles.tableCell}>
+                                        {outcome.tokenIndex}
+                                    </td>
+                                    <td className={tableStyles.tableCell}>
+                                        {outcome.title}
+                                    </td>
+                                    <td className={tableStyles.tableCell}>
+                                        {tokenPrices[
+                                            outcome.tokenIndex
+                                        ]?.price?.toFixed() ?? 0}
+                                    </td>
+                                    <td className={tableStyles.tableCell}>
+                                        {marketShares[outcome.tokenIndex]
+                                            ?.balance ?? 0}
+                                    </td>
+                                    <td className={tableStyles.tableCell}>
+                                        {userShares[outcome.tokenIndex]
+                                            ?.balance ?? 0}
+                                    </td>
+                                    <td className={tableStyles.tableCell}>
+                                        <input
+                                            type="number"
+                                            className={tableStyles.input}
+                                            value={
+                                                tradeAmounts[outcome.tokenIndex]
+                                                    ?.amount || 0
+                                            }
+                                            onChange={(e) =>
+                                                handleAmountChange(
+                                                    outcome.tokenIndex,
+                                                    parseFloat(
+                                                        e.target.value
+                                                    ) || 0
+                                                )
+                                            }
+                                        />
+                                    </td>
+                                </tr>,
+                                ...(
+                                    market.subMarkets[outcome.title]
+                                        ?.outcomes ?? []
+                                ).map((subOutcome) => (
                                     <tr
-                                        key={index}
+                                        key={
+                                            2 ** outcome.tokenIndex +
+                                            subOutcome.tokenIndex
+                                        }
                                         className={tableStyles.tableRow}
                                     >
                                         <td className={tableStyles.tableCell}>
-                                            {index < market.outcomes.length
-                                                ? market.outcomes[index]
-                                                      .tokenIndex
-                                                : index}
+                                            {outcome.tokenIndex} -{" "}
+                                            {subOutcome.tokenIndex}
                                         </td>
                                         <td className={tableStyles.tableCell}>
-                                            {index < market.outcomes.length
-                                                ? market.outcomes[index].title
-                                                : market.outcomes[
-                                                      ((index -
-                                                          market.outcomes
-                                                              .length) /
-                                                          2) |
-                                                          0
-                                                  ]?.sub?.[
-                                                      (index -
-                                                          market.outcomes
-                                                              .length) %
-                                                          2
-                                                  ]?.title || "?"}
+                                            {outcome.title} - {subOutcome.title}
                                         </td>
                                         <td className={tableStyles.tableCell}>
-                                            {tokenPrices[index]?.toFixed() ?? 0}
+                                            {tokenPrices[
+                                                outcome.tokenIndex
+                                            ]?.sub?.[
+                                                subOutcome.tokenIndex
+                                            ].price?.toFixed() ?? 0}
                                         </td>
                                         <td className={tableStyles.tableCell}>
-                                            {marketShares[index] ?? 0}
+                                            {marketShares[outcome.tokenIndex]
+                                                ?.sub?.[
+                                                subOutcome.tokenIndex
+                                            ] ?? 0}
                                         </td>
                                         <td className={tableStyles.tableCell}>
-                                            {userShares[index] ?? 0}
+                                            {userShares[outcome.tokenIndex]
+                                                ?.sub?.[
+                                                subOutcome.tokenIndex
+                                            ] ?? 0}
                                         </td>
                                         <td className={tableStyles.tableCell}>
                                             <input
                                                 type="number"
                                                 className={tableStyles.input}
-                                                value={tradeAmounts[index] || 0}
+                                                value={
+                                                    tradeAmounts[
+                                                        outcome.tokenIndex
+                                                    ]?.sub?.[
+                                                        subOutcome.tokenIndex
+                                                    ] || 0
+                                                }
                                                 onChange={(e) =>
                                                     handleAmountChange(
-                                                        index,
+                                                        outcome.tokenIndex,
                                                         parseFloat(
                                                             e.target.value
-                                                        ) || 0
+                                                        ) || 0,
+                                                        subOutcome.tokenIndex
                                                     )
                                                 }
                                             />
                                         </td>
                                     </tr>
-                                )
-                            )}
+                                )),
+                            ])}
                         </tbody>
                     </table>
                 </div>
@@ -352,7 +471,7 @@ export default function Trading() {
                     <div className="flex gap-4 mt-4 md:mt-0">
                         <button
                             className={`${tableStyles.button.base} ${tableStyles.button.buy} transform hover:scale-105 transition-transform duration-200`}
-                            onClick={() => handleTrade()}
+                            onClick={async () => handleTrade()}
                         >
                             <span className="flex items-center">
                                 {isLoading ? (
