@@ -256,6 +256,49 @@ export class PredictionMarketContractsService {
                     })),
                     subMarkets: {},
                 };
+
+                const outcomeObj = primaryMarket.outcomes.find(
+                    (ox) => ox.title === outcome
+                );
+                if (outcomeObj) {
+                    console.log(
+                        `#SplitPosition: Splitting#${outcomeObj.tokenIndex}:${outcomeObj.title}...`
+                    );
+
+                    const parentCollectionId = await this.getCollectionId(
+                        primaryCondition.id,
+                        outcomeObj.tokenIndex
+                    );
+                    // console.log('setApprovalForAll...');
+                    // await this.blockchainHelperService.call(
+                    //     this.conditionalTokensContract,
+                    //     {
+                    //         name: "setApprovalForAll",
+                    //     },
+                    //     primaryMarket.address,
+                    //     true
+                    // );
+                    // console.log('set approve...');
+                    // await this.blockchainHelperService.call(
+                    //     collateralTokenContract,
+                    //     { name: "approve" },
+                    //     primaryMarket.subMarkets[outcome].address,
+                    //     initialLiquidity
+                    // );
+                    console.log('split...')
+                    await this.blockchainHelperService.call(
+                        this.conditionalTokensContract,
+                        { name: "splitPosition" },
+                        collateralToken.address,
+                        parentCollectionId,
+                        condition.id,
+                        [1, 2],
+                        initialLiquidity
+                    );
+                    console.log(
+                        `#SplitPosition: Splitting#${outcomeObj.tokenIndex}:${outcomeObj.title} - SUCCESS`
+                    );
+                }
             }
         }
 
