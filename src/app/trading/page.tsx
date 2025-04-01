@@ -100,7 +100,7 @@ export default function Trading() {
                     lastMarket.outcomes.map((outcome) => ({
                         amount: 0,
                         sub:
-                            lastMarket.subMarkets[outcome.title]?.outcomes.map(
+                            lastMarket.subMarkets?.[outcome.title]?.outcomes.map(
                                 () => 0
                             ) ?? [],
                     }))
@@ -377,7 +377,7 @@ export default function Trading() {
                                     </td>
                                 </tr>,
                                 ...(
-                                    market.subMarkets[outcome.title]
+                                    market.subMarkets?.[outcome.title]
                                         ?.outcomes ?? []
                                 ).map((subOutcome) => (
                                     <tr

@@ -303,9 +303,9 @@ export default function ManageMarkets() {
                         {markets.length === 0 ? (
                             <option value="">No markets available</option>
                         ) : (
-                            markets.map((market) => (
+                            markets.map((market, idx) => (
                                 <option
-                                    key={market.address}
+                                    key={idx}
                                     value={market.address}
                                 >
                                     {market.question}

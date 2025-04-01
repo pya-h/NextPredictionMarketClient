@@ -292,8 +292,8 @@ export class PredictionMarketContractsService {
                         collateralToken.address,
                         parentCollectionId,
                         condition.id,
-                        [1, 2],
-                        initialLiquidity
+                        [0b01, 0b10],
+                        1
                     );
                     console.log(
                         `#SplitPosition: Splitting#${outcomeObj.tokenIndex}:${outcomeObj.title} - SUCCESS`
@@ -355,19 +355,19 @@ export class PredictionMarketContractsService {
         return creationLog;
     }
 
-    getCollectionId(
+    async getCollectionId(
         conditionId: string,
         possibleOutcomeIndices: number | number[],
         parentCollectionId: string | null = null,
         convertIndexToIndexset = true
     ) {
-        return this.conditionalTokensContract.getCollectionId(
+        return (await this.conditionalTokensContract.getCollectionId(
             parentCollectionId || this.blockchainHelperService.zeroAddress,
             conditionId,
             convertIndexToIndexset || possibleOutcomeIndices instanceof Array
                 ? this.outcomeIndexToIndexSet(possibleOutcomeIndices)
                 : possibleOutcomeIndices
-        );
+        )) as string;
     }
 
     getOutcomeSlotsCount(conditionId: string) {
@@ -712,7 +712,7 @@ export class PredictionMarketContractsService {
             primaryPrices?.map(async ({ outcome, price }) => ({
                 price,
                 outcome,
-                sub: market.subMarkets[outcome.title]?.outcomes?.length
+                sub: market.subMarkets?.[outcome.title]?.outcomes?.length
                     ? await this.getMarketAllOutcomePrices(
                           market.subMarkets[outcome.title],
                           amount
