@@ -52,11 +52,11 @@ export default function ManageMarkets() {
             return;
         }
         const service = PredictionMarketContractsService.get();
-        service.getMarketAllOutcomePrices(selectedMarket).then((r) => {
+        service.getMarketOutcomePricesNested(selectedMarket).then((r) => {
             r?.length && setTokenPrices(r.map((token) => token.price));
         });
         service.getSharesInMarket(selectedMarket, traderSelection).then((r) => {
-            r?.length && setUserShares(r.map((balance) => +balance));
+            r?.length && setUserShares(r.map(({balance}) => +balance));
         });
     }, [traderSelection, selectedMarket, stateUpdateTrigger]);
 
@@ -354,15 +354,15 @@ export default function ManageMarkets() {
                         Select Outcome
                     </h3>
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                        {selectedMarket.outcomes.map((outcome, index) => (
+                        {selectedMarket.outcomes.map((outcome) => (
                             <div
-                                key={index}
+                                key={outcome.tokenIndex}
                                 className={`${tableStyles.outcomeCard.base} ${
-                                    selectedOutcome === index
+                                    selectedOutcome === outcome.tokenIndex
                                         ? tableStyles.outcomeCard.selected
                                         : tableStyles.outcomeCard.unselected
                                 }`}
-                                onClick={() => handleOutcomeSelect(index)}
+                                onClick={() => handleOutcomeSelect(outcome.tokenIndex)}
                             >
                                 <h4 className="font-medium text-white">
                                     {outcome.title}
@@ -372,7 +372,7 @@ export default function ManageMarkets() {
                                         Current Price:
                                     </span>
                                     <span className="text-sm text-green-400 ml-3">
-                                        {tokenPrices[index]?.toFixed()} &nbsp;
+                                        {tokenPrices[outcome.tokenIndex]?.toFixed()} &nbsp;
                                         {selectedMarket.collateralToken.symbol}
                                     </span>
                                 </div>
@@ -381,7 +381,7 @@ export default function ManageMarkets() {
                                         Your Balance:
                                     </span>
                                     <span className="text-sm text-blue-400">
-                                        {userShares[index]}
+                                        {userShares[outcome.tokenIndex]}
                                     </span>
                                 </div>
                             </div>
