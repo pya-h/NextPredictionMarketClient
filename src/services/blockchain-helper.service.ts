@@ -39,9 +39,9 @@ export class BlockchainHelperService {
         return { public: '0xFFcf8FDEE72ac11b5c542428B35EEF5769C409f0', private: '0x6cbed15c793ce57650b9877cf6fa156fbef513c4e6134f022a85b1ffdd59b2a1' };
     }
     const traderAddresses = [
-      { public: '0x3fD652C93dFA333979ad762Cf581Df89BaBa6795', private: '0xae9a2e131e9b359b198fa280de53ddbe2247730b881faae7af08e567e58915bd' },
-      { public: '0x325A621DeA613BCFb5B1A69a7aCED0ea4AfBD73A', private: '0x2e114163041d2fb8d45f9251db259a68ee6bdbfd6d10fe1ae87c5c4bcd6ba491' },
-      { public: '0xF0D5BC18421fa04D0a2A2ef540ba5A9f04014BE3', private: '0x2eac15546def97adc6d69ca6e28eec831189baa2533e7910755d15403a0749e8' },
+      { public: '0x28a8746e75304c0780E011BEd21C72cD78cd535E', private: '0xa453611d9419d0e56f499079478fd72c37b251a94bfde4d19872c44cf65386e3' },
+      { public: '0xACa94ef8bD5ffEE41947b4585a84BdA5a3d3DA6E', private: '0x829e924fdf021ba3dbbc4225edfece9aca04b929d6e75613329ca6f1d31c0bb4' },
+      { public: '0x1dF62f291b2E969fB0849d99D9Ce41e2F137006e', private: '0xb0057716d5917badaf911b193b12b910811c1497b5bada8d7711f758981c3773' },
     ]
     if (traderId != null) {
       return traderAddresses[traderId]

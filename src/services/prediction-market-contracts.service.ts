@@ -285,7 +285,7 @@ export class PredictionMarketContractsService {
                     //     primaryMarket.subMarkets[outcome].address,
                     //     initialLiquidity
                     // );
-                    console.log('split...')
+                    console.log("split...");
                     await this.blockchainHelperService.call(
                         this.conditionalTokensContract,
                         { name: "splitPosition" },
@@ -507,11 +507,11 @@ export class PredictionMarketContractsService {
         market: PredictionMarket,
         traderId: number | null = null
     ) {
-        const target =
-            traderId == null
-                ? market.address
-                : this.blockchainHelperService.getWallet("trader", traderId)
-                      .address;
+        const traderAddress =
+            traderId != null
+                ? this.blockchainHelperService.getWallet("trader", traderId)
+                      .address
+                : null;
 
         return Promise.all(
             market.outcomes.map(async (outcome) => {
@@ -519,7 +519,7 @@ export class PredictionMarketContractsService {
                     balance: await this.getConditionalTokenBalance(
                         market,
                         outcome.tokenIndex,
-                        target
+                        traderAddress ?? market.address
                     ),
                     sub: market.subMarkets?.[outcome.title]
                         ? await Promise.all(
@@ -528,7 +528,9 @@ export class PredictionMarketContractsService {
                                       this.getConditionalTokenBalance(
                                           market.subMarkets[outcome.title],
                                           so.tokenIndex,
-                                          target
+                                          traderAddress ??
+                                              market.subMarkets[outcome.title]
+                                                  .address
                                       )
                               )
                           )

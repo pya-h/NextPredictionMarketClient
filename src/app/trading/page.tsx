@@ -96,7 +96,15 @@ export default function Trading() {
             }
             setMarket(lastMarket);
             if (lastMarket.outcomes) {
-                setTradeAmounts(new Array(lastMarket.outcomes.length).fill(0));
+                setTradeAmounts(
+                    lastMarket.outcomes.map((outcome) => ({
+                        amount: 0,
+                        sub:
+                            lastMarket.subMarkets[outcome.title]?.outcomes.map(
+                                () => 0
+                            ) ?? [],
+                    }))
+                );
             }
         } catch (error) {
             console.error("Error loading recent market:", error);
