@@ -36,38 +36,43 @@ export default function Creation() {
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         setIsSubmitting(true);
+        try {
+            const service = PredictionMarketContractsService.get();
+            const newMarket = await service.createMarket(
+                question,
+                outcomes,
+                +liquidity,
+                {
+                    outcomeQuestions: Object.fromEntries(
+                        outcomes
+                            .map((title) =>
+                                !["yes", "no"].includes(title.toLowerCase())
+                                    ? [title, `Will ${title} happen?`]
+                                    : []
+                            )
+                            .filter((x) => x?.[0])
+                    ), // TODO: Extra input for sub condition question
+                }
+            );
+            toast("Market successfully created!", {
+                position: "top-right",
+                autoClose: 5000,
+                hideProgressBar: false,
+                closeOnClick: true,
+                pauseOnHover: true,
+                draggable: true,
+                progress: undefined,
+                theme: "light",
+                transition: Bounce,
+            });
 
-        const service = PredictionMarketContractsService.get();
-        const newMarket = await service.createMarket(
-            question,
-            outcomes,
-            +liquidity,
-            {
-                outcomeQuestions: Object.fromEntries(
-                    outcomes
-                        .map((title) =>
-                            !["yes", "no"].includes(title.toLowerCase())
-                                ? [title, `Will ${title} happen?`]
-                                : []
-                        )
-                        .filter((x) => x?.[0])
-                ), // TODO: Extra input for sub condition question
-            }
-        );
-        toast("Market successfully created!", {
-            position: "top-right",
-            autoClose: 5000,
-            hideProgressBar: false,
-            closeOnClick: true,
-            pauseOnHover: true,
-            draggable: true,
-            progress: undefined,
-            theme: "light",
-            transition: Bounce,
-        });
-
-        saveMarketToFile(newMarket);
-        resetInputs();
+            saveMarketToFile(newMarket);
+            resetInputs();
+        } catch (ex) {
+            console.error(ex);
+        } finally {
+            setIsSubmitting(false);
+        }
     };
 
     const saveMarketToFile = (marketData: any) => {

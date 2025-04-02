@@ -223,6 +223,15 @@ export class PredictionMarketContractsService {
         } as PredictionMarket;
 
         if (subMarketsCount) {
+            // await this.blockchainHelperService.call(
+            //     this.conditionalTokensContract,
+            //     { name: "splitPosition" },
+            //     collateralToken.address,
+            //     this.blockchainHelperService.zeroAddress,
+            //     primaryCondition.id,
+            //     [0b01, 0b10],
+            //     initialLiquidity
+            // );
             primaryMarket.subMarkets = {};
             for (const outcome in outcomeQuestions) {
                 const condition = await this.createCondition(
@@ -269,23 +278,47 @@ export class PredictionMarketContractsService {
                         primaryCondition.id,
                         outcomeObj.tokenIndex
                     );
-                    // console.log('setApprovalForAll...');
-                    // await this.blockchainHelperService.call(
-                    //     this.conditionalTokensContract,
-                    //     {
-                    //         name: "setApprovalForAll",
-                    //     },
-                    //     primaryMarket.address,
-                    //     true
-                    // );
-                    // console.log('set approve...');
-                    // await this.blockchainHelperService.call(
-                    //     collateralTokenContract,
-                    //     { name: "approve" },
-                    //     primaryMarket.subMarkets[outcome].address,
-                    //     initialLiquidity
-                    // );
+                    console.log("setApprovalForAll...");
+                    await this.blockchainHelperService.call(
+                        this.conditionalTokensContract,
+                        {
+                            name: "setApprovalForAll",
+                        },
+                        this.blockchainHelperService.operatorAccount.address,
+                        true
+                    );
+                    console.log("set approve...");
+                    for (const spender of [
+                        this.blockchainHelperService.operatorAccount.address,
+                        this.conditionalTokensContract.getAddress(),
+                    ]) {
+                        await this.blockchainHelperService.call(
+                            collateralTokenContract,
+                            { name: "approve" },
+                            spender,
+                            initialLiquidity
+                        );
+
+                        console.log(
+                            `CTF Allowance for ${
+                                spender !==
+                                this.blockchainHelperService.operatorAccount
+                                    .address
+                                    ? "CTF"
+                                    : "Operator"
+                            }=`,
+                            await this.blockchainHelperService.call(
+                                collateralTokenContract,
+                                { name: "allowance", isView: true },
+                                this.blockchainHelperService.operatorAccount
+                                    .address,
+                                spender
+                            )
+                        );
+                    }
+
                     console.log("split...");
+
                     await this.blockchainHelperService.call(
                         this.conditionalTokensContract,
                         { name: "splitPosition" },
@@ -293,7 +326,7 @@ export class PredictionMarketContractsService {
                         parentCollectionId,
                         condition.id,
                         [0b01, 0b10],
-                        1
+                        initialLiquidity
                     );
                     console.log(
                         `#SplitPosition: Splitting#${outcomeObj.tokenIndex}:${outcomeObj.title} - SUCCESS`
@@ -643,6 +676,12 @@ export class PredictionMarketContractsService {
         market: PredictionMarket,
         amount: number = 1
     ) {
+        if (market.address === this.blockchainHelperService.zeroAddress) {
+            return market.outcomes?.map((outcome) => ({
+                outcome,
+                price: 0,
+            }));
+        }
         const amountInWei = BigInt(
             (
                 await this.blockchainHelperService.toWei(
