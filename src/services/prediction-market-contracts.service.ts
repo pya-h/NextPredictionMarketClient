@@ -223,16 +223,22 @@ export class PredictionMarketContractsService {
         } as PredictionMarket;
 
         if (subMarketsCount) {
-            // await this.blockchainHelperService.call(
-            //     this.conditionalTokensContract,
-            //     { name: "splitPosition" },
-            //     collateralToken.address,
-            //     this.blockchainHelperService.zeroAddress,
-            //     primaryCondition.id,
-            //     [0b01, 0b10],
-            //     initialLiquidity
-            // );
+            await this.blockchainHelperService.call(
+                this.conditionalTokensContract,
+                { name: "splitPosition" },
+                collateralToken.address,
+                this.blockchainHelperService.zeroAddress,
+                primaryCondition.id,
+                [0b01, 0b10],
+                initialLiquidity
+            );
             primaryMarket.subMarkets = {};
+
+            // TODO: ********************
+            // Maybe do it the other way around:
+            // Create a Yes/No condition
+            // Then first split Yes on Primary condition A and B giving A-Yes and B-Yes
+            // Then split No on Primary Condition A and B giving A-No and B-No
             for (const outcome in outcomeQuestions) {
                 const condition = await this.createCondition(
                     outcomeQuestions[outcome],
@@ -679,7 +685,7 @@ export class PredictionMarketContractsService {
         if (market.address === this.blockchainHelperService.zeroAddress) {
             return market.outcomes?.map((outcome) => ({
                 outcome,
-                price: 0,
+                price: new BigNumber(0),
             }));
         }
         const amountInWei = BigInt(
